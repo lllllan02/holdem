@@ -9,6 +9,10 @@ clean-port:
 server:
 	cd server && go run main.go
 
+.PHONY: mod
+mod:
+	cd server && go mod tidy
+
 # 运行前端服务
 .PHONY: client
 client:

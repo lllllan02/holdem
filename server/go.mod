@@ -2,7 +2,10 @@ module github.com/lllllan02/holdem
 
 go 1.21.13
 
-require github.com/gin-gonic/gin v1.9.1
+require (
+	github.com/gin-gonic/gin v1.9.1
+	github.com/gorilla/websocket v1.5.3
+)
 
 require (
 	github.com/bytedance/sonic v1.9.1 // indirect

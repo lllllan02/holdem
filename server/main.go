@@ -12,5 +12,8 @@ func main() {
 	r.GET("/user", service.GetUserHandler)
 	r.PUT("/user/name", service.UpdateUserNameHandler)
 
+	// WebSocket 连接
+	r.GET("/ws", service.WebSocketHandler)
+
 	r.Run(":8080")
 }

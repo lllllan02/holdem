@@ -17,6 +17,16 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"` // 首次访问时间
 }
 
+// String 实现 Stringer 接口
+func (u *User) String() string {
+	// 如果用户有名字，就用名字；否则用 ID 的前 8 位
+	name := u.Name
+	if name == "" {
+		name = u.ID[:8]
+	}
+	return fmt.Sprintf("%s@%s", name, u.IP)
+}
+
 var users = make(map[string]*User)
 var dataFile = "users.json"
 

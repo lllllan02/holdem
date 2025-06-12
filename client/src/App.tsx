@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import type { User } from './types/user'
 import UserCard from './components/UserCard'
+import { wsService } from './services/websocket'
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -36,6 +37,8 @@ function App() {
 
   useEffect(() => {
     fetchUser()
+    // 初始化 WebSocket 连接
+    wsService
   }, [])
 
   if (!user) {
