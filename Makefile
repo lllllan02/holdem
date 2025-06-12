@@ -1,14 +1,20 @@
+# 清理占用的端口
+.PHONY: clean-port
+clean-port:
+	@echo "Cleaning port 8080..."
+	@lsof -ti:8080 | xargs kill -9 2>/dev/null || echo "Port 8080 is not in use"
 
 # 运行后端服务
 .PHONY: server
 server:
-	cd server && go run main.go &
+	cd server && go run main.go
 
 # 运行前端服务
 .PHONY: client
 client:
-	cd client && npm run dev &
+	cd client && npm run dev
 
 # 运行所有服务
 .PHONY: dev
-dev: server client
+dev: clean-port
+	@make server & make client &

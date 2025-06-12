@@ -2,16 +2,15 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/lllllan02/holdem/service"
 )
 
 func main() {
 	r := gin.Default()
 
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
+	// 注册路由
+	r.GET("/user", service.GetUserHandler)
+	r.PUT("/user/name", service.UpdateUserNameHandler)
 
 	r.Run(":8080")
 }
