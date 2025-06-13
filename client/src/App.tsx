@@ -2,7 +2,22 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import type { User } from './types/user'
 import UserCard from './components/UserCard'
+import PokerTable from './components/PokerTable'
 import { wsService } from './services/websocket'
+
+const demoPlayers = [
+  { name: 'CO', chips: 126.5 },
+  { name: 'BTN', chips: 670 },
+  { name: 'SB', chips: 49 },
+  { name: 'BB', chips: 132 },
+  { name: 'UTG', chips: 670 },
+  { name: 'UTG+1', chips: 968 },
+  { name: 'UTG+2', chips: 670 },
+  { name: 'HJ', chips: 260 },
+  { name: 'LJ', chips: 269 },
+  { name: 'MP', chips: 300 },
+];
+const demoCommunityCards = ['A♠', 'K♥', '', '', ''];
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -46,8 +61,11 @@ function App() {
   }
 
   return (
-    <div className="container">
-      <UserCard user={user} onUpdateName={updateUserName} />
+    <div className="main-area">
+      <PokerTable players={demoPlayers} communityCards={demoCommunityCards} />
+      <div className="user-info-float">
+        <UserCard user={user} onUpdateName={updateUserName} />
+      </div>
     </div>
   )
 }

@@ -1,3 +1,11 @@
+html, body, #root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -153,4 +161,90 @@ button:hover {
   font-size: 1.2rem;
   color: var(--primary);
   background-color: var(--background);
+}
+
+.main-area {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--background);
+  overflow: hidden;
+}
+
+.poker-table {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+}
+
+.user-info-float {
+  position: fixed;
+  right: 32px;
+  bottom: 32px;
+  z-index: 10;
+  min-width: 220px;
+  max-width: 300px;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  padding: 1rem;
+  opacity: 0.95;
+}
+
+.user-card {
+  padding: 0.5rem 0.5rem;
+  box-shadow: none;
+  max-width: 100%;
+}
+
+.community-cards {
+  display: flex;
+  gap: 12px;
+}
+.poker-card {
+  width: 48px;
+  height: 64px;
+  background: #fff;
+  border-radius: 8px;
+  border: 2px solid #FFD700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #222;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.player-seat {
+  min-width: 60px;
+  min-height: 60px;
+  background: rgba(30,30,40,0.85);
+  border-radius: 50%;
+  color: #FFD700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  border: 2px solid #FFD700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  padding: 6px 8px;
+}
+.player-seat-label {
+  font-size: 0.8rem;
+  color: #fff;
+  margin-bottom: 2px;
+}
+.player-seat-name {
+  font-weight: bold;
+}
+.player-seat-chips {
+  font-size: 0.8rem;
+  color: #fff;
 }
