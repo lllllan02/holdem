@@ -3,6 +3,7 @@ package service
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -50,6 +51,13 @@ func WebSocketHandler(c *gin.Context) {
 
 	// 注册客户端到 hub
 	client.hub.register <- client
+
+	// 发送当前游戏状态给新连接的客户端
+	go func() {
+		// 等待一小段时间确保客户端注册完成
+		time.Sleep(100 * time.Millisecond)
+		client.sendGameState()
+	}()
 
 	// 启动读写协程
 	go client.writePump()

@@ -1,6 +1,11 @@
 package service
 
-import "log"
+import (
+	"encoding/json"
+	"log"
+
+	"github.com/lllllan02/holdem/poker"
+)
 
 // Hub 维护活跃的客户端集合并广播消息
 type Hub struct {
@@ -15,6 +20,9 @@ type Hub struct {
 
 	// 注销请求通道
 	unregister chan *Client
+
+	// 游戏实例
+	game *poker.Game
 }
 
 // NewHub 创建一个新的 Hub
@@ -24,9 +32,29 @@ func NewHub() *Hub {
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		game:       poker.NewGame(),
 	}
 	log.Printf("[Hub] 创建新的 Hub 实例\n")
 	return hub
+}
+
+// broadcastGameState 广播游戏状态给所有客户端
+func (h *Hub) broadcastGameState() {
+	gameStateMsg := WSMessage{
+		Type: MSG_GAME_STATE,
+		Data: GameStateData{
+			Game: h.game,
+		},
+	}
+
+	messageBytes, err := json.Marshal(gameStateMsg)
+	if err != nil {
+		log.Printf("[Hub] 序列化游戏状态失败, 错误: %v\n", err)
+		return
+	}
+
+	log.Printf("[Hub] 广播游戏状态更新, 目标客户端数: %d\n", len(h.clients))
+	h.broadcast <- messageBytes
 }
 
 // Run 启动 hub 的消息处理循环
@@ -35,9 +63,9 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case client := <-h.register:
-			// 如果已存在相同用户的连接，关闭旧连接
+			// 如果已存在相同用户的连接，安全关闭旧连接
 			if oldClient, exists := h.clients[client.user.ID]; exists {
-				close(oldClient.send)
+				h.safeCloseClient(oldClient)
 				log.Printf("[Hub] 关闭用户旧连接 - %s\n", client.user)
 			}
 			h.clients[client.user.ID] = client
@@ -47,7 +75,7 @@ func (h *Hub) Run() {
 		case client := <-h.unregister:
 			if _, ok := h.clients[client.user.ID]; ok {
 				delete(h.clients, client.user.ID)
-				close(client.send)
+				h.safeCloseClient(client)
 				log.Printf("[Hub] 客户端注销 - %s, 当前在线: %d\n",
 					client.user, len(h.clients))
 			}
@@ -56,16 +84,37 @@ func (h *Hub) Run() {
 			log.Printf("[Hub] 广播消息 - 长度: %d bytes, 目标客户端数: %d\n",
 				len(message), len(h.clients))
 
-			for _, client := range h.clients {
+			for userID, client := range h.clients {
 				select {
 				case client.send <- message:
 					// 消息发送成功
 				default:
-					close(client.send)
-					delete(h.clients, client.user.ID)
+					// 客户端通道已满或已关闭，移除客户端
+					delete(h.clients, userID)
+					h.safeCloseClient(client)
 					log.Printf("[Hub] 移除无响应客户端 - %s\n", client.user)
 				}
 			}
 		}
+	}
+}
+
+// safeCloseClient 安全地关闭客户端连接
+func (h *Hub) safeCloseClient(client *Client) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[Hub] 关闭客户端时发生panic - %s, 错误: %v\n", client.user, r)
+		}
+	}()
+
+	// 检查通道是否已经关闭
+	select {
+	case <-client.send:
+		// 通道已经关闭
+		log.Printf("[Hub] 客户端通道已关闭 - %s\n", client.user)
+	default:
+		// 通道还开着，安全关闭
+		close(client.send)
+		log.Printf("[Hub] 安全关闭客户端通道 - %s\n", client.user)
 	}
 }

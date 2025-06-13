@@ -3,14 +3,25 @@ import "./App.css";
 import type { User } from "./types/user";
 import PokerTable from "./components/PokerTable";
 import UserInfoCompact from "./components/UserInfoCompact";
-import { wsService } from "./services/websocket";
+import { wsService, type GameState, type Player as WSPlayer } from "./services/websocket";
+
+// 将WebSocket的Player转换为本地Player格式
+const convertWSPlayerToLocal = (wsPlayer: WSPlayer, seatIndex: number) => {
+  // 检查是否为空座位
+  if (!wsPlayer || wsPlayer.status === "empty" || !wsPlayer.name || wsPlayer.name === "") {
+    return undefined;
+  }
+  
+  return {
+    name: wsPlayer.name,
+    chips: wsPlayer.chips,
+  };
+};
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [seatedPlayers, setSeatedPlayers] = useState<{
-    [seat: string]: { name: string; chips: number };
-  }>({});
-  const [currentUserSeat, setCurrentUserSeat] = useState<string | null>(null); // 跟踪当前用户的座位
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [currentUserSeat, setCurrentUserSeat] = useState<string | null>(null);
 
   // 获取用户信息
   const fetchUser = async () => {
@@ -40,37 +51,72 @@ function App() {
     }
   };
 
-  // 落座功能
+  // 落座功能 - 通过WebSocket发送
   const handleSit = (seat: string) => {
     if (user && !currentUserSeat) {
-      // 只有当前没有坐在任何座位时才能落座
-      setSeatedPlayers((prev) => ({
-        ...prev,
-        [seat]: { name: user.name, chips: 1000 }, // 默认给1000筹码
-      }));
-      setCurrentUserSeat(seat);
+      const seatNumber = parseInt(seat.replace("座位", ""));
+      wsService.sitDown(seatNumber);
     }
   };
 
-  // 离开座位功能
+  // 离开座位功能 - 通过WebSocket发送
   const handleLeave = (seat: string) => {
-    setSeatedPlayers((prev) => {
-      const newSeatedPlayers = { ...prev };
-      delete newSeatedPlayers[seat];
-      return newSeatedPlayers;
+    const seatNumber = parseInt(seat.replace("座位", ""));
+    wsService.leaveSeat(seatNumber);
+  };
+
+  // 从游戏状态中提取座位信息
+  const getSeatedPlayersFromGameState = () => {
+    if (!gameState) return {};
+    
+    const seatedPlayers: { [seat: string]: { name: string; chips: number } } = {};
+    
+    gameState.players.forEach((player, index) => {
+      const localPlayer = convertWSPlayerToLocal(player, index);
+      if (localPlayer) {
+        seatedPlayers[`座位${index + 1}`] = localPlayer;
+      }
     });
-    setCurrentUserSeat(null);
+    
+    return seatedPlayers;
+  };
+
+  // 检查当前用户的座位
+  const getCurrentUserSeat = () => {
+    if (!gameState || !user) return null;
+    
+    const userPlayerIndex = gameState.players.findIndex(player => player.userId === user.id);
+    if (userPlayerIndex !== -1 && gameState.players[userPlayerIndex].status !== "empty") {
+      return `座位${userPlayerIndex + 1}`;
+    }
+    
+    return null;
   };
 
   useEffect(() => {
     fetchUser();
-    // 初始化 WebSocket 连接
-    wsService;
+    
+    // 注册WebSocket回调
+    wsService.onGameState((newGameState: GameState) => {
+      console.log("Received game state:", newGameState);
+      setGameState(newGameState);
+    });
+
+    wsService.onError((error: string) => {
+      console.error("WebSocket error:", error);
+    });
   }, []);
+
+  // 更新当前用户座位
+  useEffect(() => {
+    setCurrentUserSeat(getCurrentUserSeat());
+  }, [gameState, user]);
 
   if (!user) {
     return <div className="loading">Loading...</div>;
   }
+
+  const seatedPlayers = getSeatedPlayersFromGameState();
 
   return (
     <div className="main-area">
@@ -81,6 +127,24 @@ function App() {
         onLeave={handleLeave}
       />
       <UserInfoCompact user={user} onUpdateName={updateUserName} />
+      
+      {/* 调试信息 */}
+      {gameState && (
+        <div style={{
+          position: "fixed",
+          bottom: "20px",
+          left: "20px",
+          background: "rgba(0,0,0,0.8)",
+          color: "white",
+          padding: "10px",
+          borderRadius: "5px",
+          fontSize: "12px",
+          maxWidth: "300px",
+        }}>
+          <div>游戏状态: {gameState.gameStatus}</div>
+          <div>在线玩家: {gameState.players.filter(p => p.status !== "empty").length}</div>
+        </div>
+      )}
     </div>
   );
 }
