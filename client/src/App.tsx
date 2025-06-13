@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import type { User } from './types/user'
-import UserCard from './components/UserCard'
 import PokerTable from './components/PokerTable'
+import UserInfoCompact from './components/UserInfoCompact'
 import { wsService } from './services/websocket'
 
 const demoPlayers = [
@@ -50,6 +50,8 @@ function App() {
     }
   }
 
+
+
   useEffect(() => {
     fetchUser()
     // 初始化 WebSocket 连接
@@ -63,9 +65,7 @@ function App() {
   return (
     <div className="main-area">
       <PokerTable players={demoPlayers} communityCards={demoCommunityCards} />
-      <div className="user-info-float">
-        <UserCard user={user} onUpdateName={updateUserName} />
-      </div>
+      <UserInfoCompact user={user} onUpdateName={updateUserName} />
     </div>
   )
 }
