@@ -2,9 +2,15 @@ import type { Card } from "../services/websocket";
 
 interface CommunityCardsProps {
   cards?: Card[];
+  gameStatus?: string;
 }
 
-export default function CommunityCards({ cards = [] }: CommunityCardsProps) {
+export default function CommunityCards({ cards = [], gameStatus = "waiting" }: CommunityCardsProps) {
+  // 只在游戏进行中时显示公共牌区域
+  if (gameStatus === "waiting") {
+    return null;
+  }
+
   return (
     <div className="community-cards">
       {Array.from({ length: 5 }).map((_, i) => (

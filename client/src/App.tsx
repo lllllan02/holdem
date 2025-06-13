@@ -320,14 +320,11 @@ function App() {
       <PokerTable
         seatedPlayers={seatedPlayers}
         currentUserSeat={currentUserSeat}
-        currentUserId={user?.id}
         gameStatus={gameState?.gameStatus || "waiting"}
         communityCards={gameState?.communityCards || []}
         pot={gameState?.pot || 0}
         dealerPos={gameState?.dealerPos || -1}
         currentPlayer={gameState?.currentPlayer || -1}
-        smallBlind={gameState?.smallBlind || 10}
-        bigBlind={gameState?.bigBlind || 20}
         onSit={handleSit}
         onLeave={handleLeave}
       />
@@ -339,7 +336,7 @@ function App() {
           onClick={handleStartGame}
           style={{
             position: "fixed",
-            bottom: "50%",
+            bottom: "35%",
             left: "50%",
             transform: "translate(-50%, 50%)",
             padding: "12px 24px",

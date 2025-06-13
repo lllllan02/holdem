@@ -43,27 +43,21 @@ interface Player {
 export default function PokerTable({
   seatedPlayers = {},
   currentUserSeat,
-  currentUserId,
   gameStatus = "waiting",
   communityCards = [],
   pot = 0,
   dealerPos = -1,
   currentPlayer = -1,
-  smallBlind = 10,
-  bigBlind = 20,
   onSit,
   onLeave,
 }: {
   seatedPlayers?: { [seat: string]: Player };
   currentUserSeat?: string | null;
-  currentUserId?: string;
   gameStatus?: string;
   communityCards?: Card[];
   pot?: number;
   dealerPos?: number;
   currentPlayer?: number;
-  smallBlind?: number;
-  bigBlind?: number;
   onSit?: (seat: string) => void;
   onLeave?: (seat: string) => void;
 }) {
@@ -147,7 +141,7 @@ export default function PokerTable({
             gap: "16px",
           }}
         >
-          <CommunityCards cards={communityCards} />
+          <CommunityCards cards={communityCards} gameStatus={gameStatus} />
         </div>
         
         {/* 底池显示 */}
@@ -173,9 +167,6 @@ export default function PokerTable({
         )}
         {/* 玩家座位放到桌沿外圈，手牌放到桌面内圈 */}
         {SEAT_POSITIONS.map((pos, i) => {
-          const cx = width / 2,
-            cy = height / 2;
-
           // 重新设计整齐的布局
           let px, py;
 
@@ -212,8 +203,8 @@ export default function PokerTable({
               py = height * 0.65;
               break;
             default:
-              px = cx;
-              py = cy;
+              px = width / 2;
+              py = height / 2;
           }
           // 获取该座位的玩家信息
           const player = seatedPlayers[pos.seat];
@@ -281,8 +272,6 @@ export default function PokerTable({
           let cardY = py;
           
           // 桌子的边界和中心
-          const centerX = width / 2;
-          const centerY = height / 2;
           const tableMargin = 80; // 距离桌边的距离
           
           if (pos.seat.includes("1") || pos.seat.includes("2")) {
@@ -318,7 +307,6 @@ export default function PokerTable({
                 isSmallBlind={isSmallBlind}
                 isBigBlind={isBigBlind}
                 isCurrentPlayer={isCurrentPlayerTurn}
-                isCurrentUser={isCurrentUser}
                 onSit={() => onSit?.(pos.seat)}
                 style={{
                   position: "absolute",

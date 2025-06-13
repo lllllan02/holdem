@@ -126,7 +126,7 @@ export default function PlayerSeat({
           <div className="player-seat-chips">{player.chips}</div>
 
           {/* 当前下注显示 */}
-          {player.currentBet && player.currentBet > 0 && (
+          {gameStatus === "playing" && (
             <div
               style={{
                 position: "absolute",
@@ -143,7 +143,7 @@ export default function PlayerSeat({
                 whiteSpace: "nowrap",
               }}
             >
-              下注: {player.currentBet}
+              下注: {player.currentBet || 0}
             </div>
           )}
         </>
