@@ -472,8 +472,11 @@ func (g *Game) isRoundComplete() bool {
 
 // nextPhase 进入下一个游戏阶段
 func (g *Game) nextPhase() {
+	log.Printf("[游戏] 当前阶段: %s, 检查是否应该直接摊牌", g.GamePhase)
+
 	// 检查是否应该直接进入摊牌阶段
 	if g.shouldGoToShowdown() {
+		log.Printf("[游戏] 满足直接摊牌条件，跳过剩余阶段")
 		// 先发完所有公共牌
 		g.dealRemainingCards()
 		// 直接进入摊牌
@@ -481,6 +484,8 @@ func (g *Game) nextPhase() {
 		g.showdown()
 		return
 	}
+
+	log.Printf("[游戏] 继续正常游戏流程，进入下一阶段")
 
 	// 重置所有玩家的行动状态和当前下注
 	for i := range g.Players {
@@ -666,20 +671,30 @@ func (g *Game) GetReadyPlayersCount() (int, int) {
 // shouldGoToShowdown 检查是否应该直接进入摊牌阶段
 func (g *Game) shouldGoToShowdown() bool {
 	activePlayers := 0
-	playersCanAct := 0
+	allInPlayers := 0
+	playersWithChips := 0
 
 	for _, player := range g.Players {
 		if !player.IsEmpty() && player.Status != PlayerStatusFolded {
 			activePlayers++
-			// 统计还能行动的玩家（坐着且有筹码且未行动）
-			if player.Status == PlayerStatusSitting && player.Chips > 0 && !player.HasActed {
-				playersCanAct++
+			if player.Status == PlayerStatusAllIn {
+				allInPlayers++
+			} else if player.Status == PlayerStatusSitting && player.Chips > 0 {
+				playersWithChips++
 			}
+			log.Printf("[摊牌检查] 玩家 %s: 状态=%s, 筹码=%d", player.Name, player.Status, player.Chips)
 		}
 	}
 
-	// 如果只剩一个玩家，或者没有玩家能继续行动，直接摊牌
-	return activePlayers <= 1 || playersCanAct == 0
+	shouldShowdown := activePlayers <= 1 || playersWithChips <= 1
+	log.Printf("[摊牌检查] 活跃玩家=%d, 全下玩家=%d, 有筹码玩家=%d, 应该摊牌=%t",
+		activePlayers, allInPlayers, playersWithChips, shouldShowdown)
+
+	// 只有在以下情况下才直接摊牌：
+	// 1. 只剩一个玩家（其他都弃牌了）
+	// 2. 只有一个玩家还有筹码，其他都全下了
+	// 3. 所有玩家都全下了
+	return shouldShowdown
 }
 
 // dealRemainingCards 发完剩余的公共牌
