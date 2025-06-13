@@ -3,7 +3,6 @@ package poker
 import (
 	"log"
 	"math/rand"
-	"time"
 )
 
 // 游戏状态常量
@@ -64,7 +63,7 @@ func NewGame() *Game {
 		CommunityCards: make([]Card, 0, 5),
 		Pot:            0,
 		CurrentBet:     0,
-		DealerPos:      0,
+		DealerPos:      -1, // 初始化为-1，表示还未设置庄家
 		CurrentPlayer:  -1,
 		SmallBlind:     DefaultSmallBlind,
 		BigBlind:       DefaultBigBlind,
@@ -130,11 +129,16 @@ func (g *Game) initializeRound() {
 		}
 	}
 
-	// 设置庄家位置（第一局随机，后续轮转）
-	if g.DealerPos == 0 {
-		g.DealerPos = g.findRandomActivePlayer()
+	// 设置庄家位置（第一局从座位1开始，后续轮转）
+	if g.DealerPos == -1 {
+		// 第一局游戏，从座位1开始（如果座位1有人），否则找第一个有人的座位
+		g.DealerPos = g.findFirstActivePlayer()
+		log.Printf("[游戏] 第一局游戏，庄家位置设置为座位%d", g.DealerPos+1)
 	} else {
+		// 后续游戏，庄家位置轮转到下一个活跃玩家
+		oldDealerPos := g.DealerPos
 		g.DealerPos = g.getNextActivePlayer(g.DealerPos)
+		log.Printf("[游戏] 庄家位置从座位%d轮转到座位%d", oldDealerPos+1, g.DealerPos+1)
 	}
 
 	// 发底牌
@@ -143,9 +147,8 @@ func (g *Game) initializeRound() {
 	// 下盲注
 	g.postBlinds()
 
-	// 设置第一个行动玩家（大盲注后的第一个玩家）
-	bigBlindPos := g.getNextActivePlayer(g.getNextActivePlayer(g.DealerPos))
-	g.CurrentPlayer = g.getNextActivePlayer(bigBlindPos)
+	// 设置第一个行动玩家
+	g.setFirstActionPlayer()
 }
 
 // resetRound 重置游戏轮次
@@ -153,7 +156,7 @@ func (g *Game) resetRound() {
 	g.Pot = 0
 	g.CurrentBet = 0
 	g.CommunityCards = make([]Card, 0, 5)
-	g.DealerPos = 0
+	g.DealerPos = -1 // 重置为-1，下次开始游戏时重新设置
 	g.CurrentPlayer = -1
 	g.Deck = make([]Card, 0, 52)
 }
@@ -178,7 +181,6 @@ func (g *Game) createDeck() {
 
 // shuffleDeck 洗牌
 func (g *Game) shuffleDeck() {
-	rand.Seed(time.Now().UnixNano())
 	for i := len(g.Deck) - 1; i > 0; i-- {
 		j := rand.Intn(i + 1)
 		g.Deck[i], g.Deck[j] = g.Deck[j], g.Deck[i]
@@ -210,13 +212,38 @@ func (g *Game) dealHoleCards() {
 
 // postBlinds 下盲注
 func (g *Game) postBlinds() {
-	smallBlindPos := g.getNextActivePlayer(g.DealerPos)
-	bigBlindPos := g.getNextActivePlayer(smallBlindPos)
+	playerCount := g.GetSittingPlayersCount()
+
+	// 新的盲注逻辑：小盲总是第一个有人的座位，大盲是第二个有人的座位
+	occupiedSeats := make([]int, 0)
+	for i, player := range g.Players {
+		if !player.IsEmpty() && player.Status == PlayerStatusSitting {
+			occupiedSeats = append(occupiedSeats, i)
+		}
+	}
+
+	var smallBlindPos, bigBlindPos int
+	if len(occupiedSeats) >= 2 {
+		smallBlindPos = occupiedSeats[0] // 第一个有人的座位作为小盲
+		bigBlindPos = occupiedSeats[1]   // 第二个有人的座位作为大盲
+	} else if len(occupiedSeats) == 1 {
+		// 只有一个玩家的情况（理论上不应该发生）
+		smallBlindPos = occupiedSeats[0]
+		bigBlindPos = occupiedSeats[0]
+	} else {
+		return // 没有玩家
+	}
+
+	log.Printf("[游戏] 玩家数量: %d", playerCount)
+	log.Printf("[游戏] 庄家位置: 座位%d (%s)", g.DealerPos+1, g.Players[g.DealerPos].Name)
+	log.Printf("[游戏] 小盲位置: 座位%d (%s)", smallBlindPos+1, g.Players[smallBlindPos].Name)
+	log.Printf("[游戏] 大盲位置: 座位%d (%s)", bigBlindPos+1, g.Players[bigBlindPos].Name)
 
 	// 小盲注
 	if smallBlindPos != -1 {
 		g.Players[smallBlindPos].PostBlind(g.SmallBlind)
 		g.Pot += g.SmallBlind
+		log.Printf("[游戏] %s 下小盲注 %d", g.Players[smallBlindPos].Name, g.SmallBlind)
 	}
 
 	// 大盲注
@@ -224,24 +251,80 @@ func (g *Game) postBlinds() {
 		g.Players[bigBlindPos].PostBlind(g.BigBlind)
 		g.Pot += g.BigBlind
 		g.CurrentBet = g.BigBlind
+		log.Printf("[游戏] %s 下大盲注 %d", g.Players[bigBlindPos].Name, g.BigBlind)
 	}
 }
 
-// findRandomActivePlayer 找到一个随机的活跃玩家位置
-func (g *Game) findRandomActivePlayer() int {
-	activePositions := make([]int, 0)
+// setFirstActionPlayer 设置翻牌前第一个行动玩家
+func (g *Game) setFirstActionPlayer() {
+	playerCount := g.GetSittingPlayersCount()
+
+	// 获取所有有人的座位
+	occupiedSeats := make([]int, 0)
 	for i, player := range g.Players {
 		if !player.IsEmpty() && player.Status == PlayerStatusSitting {
-			activePositions = append(activePositions, i)
+			occupiedSeats = append(occupiedSeats, i)
 		}
 	}
 
-	if len(activePositions) == 0 {
-		return -1
+	if len(occupiedSeats) < 2 {
+		return // 玩家不足
 	}
 
-	rand.Seed(time.Now().UnixNano())
-	return activePositions[rand.Intn(len(activePositions))]
+	if playerCount == 2 {
+		// 2人游戏：小盲注玩家先行动
+		g.CurrentPlayer = occupiedSeats[0] // 小盲位置
+		log.Printf("[游戏] 翻牌前，2人游戏，小盲注玩家先行动：座位%d (%s)", g.CurrentPlayer+1, g.Players[g.CurrentPlayer].Name)
+	} else {
+		// 3人以上：大盲注后的第一个玩家先行动
+		bigBlindPos := occupiedSeats[1] // 大盲位置
+		// 找到大盲后的下一个玩家
+		nextPlayerIndex := -1
+		for i, seat := range occupiedSeats {
+			if seat == bigBlindPos && i+1 < len(occupiedSeats) {
+				nextPlayerIndex = i + 1
+				break
+			}
+		}
+		// 如果大盲是最后一个玩家，则从第一个玩家开始
+		if nextPlayerIndex == -1 {
+			nextPlayerIndex = 0
+		}
+
+		g.CurrentPlayer = occupiedSeats[nextPlayerIndex]
+		log.Printf("[游戏] 翻牌前，%d人游戏，大盲注后第一个玩家先行动：座位%d (%s)", playerCount, g.CurrentPlayer+1, g.Players[g.CurrentPlayer].Name)
+	}
+}
+
+// setFirstActionPlayerPostFlop 设置翻牌后第一个行动玩家（从小盲注开始）
+func (g *Game) setFirstActionPlayerPostFlop() {
+	// 获取所有有人的座位
+	occupiedSeats := make([]int, 0)
+	for i, player := range g.Players {
+		if !player.IsEmpty() && player.Status == PlayerStatusSitting {
+			occupiedSeats = append(occupiedSeats, i)
+		}
+	}
+
+	if len(occupiedSeats) < 2 {
+		return // 玩家不足
+	}
+
+	// 翻牌后总是从小盲注玩家开始行动
+	g.CurrentPlayer = occupiedSeats[0] // 小盲位置
+	log.Printf("[游戏] 翻牌后，小盲注玩家先行动：座位%d (%s)", g.CurrentPlayer+1, g.Players[g.CurrentPlayer].Name)
+}
+
+// findFirstActivePlayer 找到第一个活跃玩家位置（优先从座位1开始）
+func (g *Game) findFirstActivePlayer() int {
+	// 优先从座位1开始（索引0），找到序号最小的有人座位
+	for i := 0; i < len(g.Players); i++ {
+		if !g.Players[i].IsEmpty() && g.Players[i].Status == PlayerStatusSitting {
+			log.Printf("[游戏] 找到第一个活跃玩家：座位%d (%s)", i+1, g.Players[i].Name)
+			return i
+		}
+	}
+	return -1
 }
 
 // getNextActivePlayer 获取下一个活跃玩家位置
@@ -416,9 +499,8 @@ func (g *Game) nextPhase() {
 		return
 	}
 
-	// 设置第一个行动玩家（小盲注位置开始）
-	smallBlindPos := g.getNextActivePlayer(g.DealerPos)
-	g.CurrentPlayer = g.getNextActivePlayer(smallBlindPos)
+	// 设置第一个行动玩家（翻牌后从小盲注开始）
+	g.setFirstActionPlayerPostFlop()
 }
 
 // dealFlop 发翻牌（3张公共牌）

@@ -223,11 +223,54 @@ export default function PokerTable({
           const seatIndex = parseInt(pos.seat.replace("座位", "")) - 1;
           
           // 判断各种状态
-          const isDealer = dealerPos === seatIndex;
-          const isSmallBlind = gameStatus === "playing" && dealerPos >= 0 && 
-            ((dealerPos + 1) % 7) === seatIndex;
-          const isBigBlind = gameStatus === "playing" && dealerPos >= 0 && 
-            ((dealerPos + 2) % 7) === seatIndex;
+          let isDealer = dealerPos === seatIndex;
+          
+          // 计算小盲和大盲位置
+          let isSmallBlind = false;
+          let isBigBlind = false;
+          
+          // 添加更多调试信息
+          if (seatIndex === 0) { // 只在第一个座位打印一次
+            console.log(`[调试] gameStatus: ${gameStatus}, dealerPos: ${dealerPos}`);
+            console.log(`[调试] seatedPlayers:`, seatedPlayers);
+          }
+          
+          if (gameStatus === "playing") {
+            // 获取所有有人的座位索引
+            const occupiedSeats = Object.keys(seatedPlayers)
+              .map(seat => parseInt(seat.replace("座位", "")) - 1)
+              .sort((a, b) => a - b);
+            
+            const playerCount = occupiedSeats.length;
+            
+            // 如果dealerPos为-1，使用第一个有人的座位作为庄家
+            let actualDealerPos = dealerPos;
+            if (dealerPos < 0 && occupiedSeats.length > 0) {
+              actualDealerPos = occupiedSeats[0];
+              console.log(`[盲注调试] dealerPos为-1，使用第一个有人座位作为庄家: 座位${actualDealerPos + 1}`);
+              // 更新庄家标识
+              isDealer = actualDealerPos === seatIndex;
+            }
+            
+                                      // 新的盲注逻辑：从座位1开始作为小盲，然后按座位顺序轮流
+            // 小盲位置 = 第一个有人的座位（座位1优先）
+            // 大盲位置 = 小盲后面的下一个有人座位
+            const smallBlindSeat = occupiedSeats[0]; // 第一个有人的座位作为小盲
+            const bigBlindSeat = occupiedSeats[1]; // 第二个有人的座位作为大盲
+            
+            isSmallBlind = seatIndex === smallBlindSeat;
+            isBigBlind = seatIndex === bigBlindSeat;
+            
+            // 调试信息 - 改为在第一个座位就打印
+            if (i === 0) { // 只在第一个座位打印一次
+              console.log(`[盲注调试] 玩家数量: ${playerCount}, 原始庄家位置: 座位${dealerPos + 1}, 实际庄家位置: 座位${actualDealerPos + 1}`);
+              console.log(`[盲注调试] 有人座位:`, occupiedSeats.map(s => `座位${s + 1}`));
+              console.log(`[盲注调试] 当前玩家: 座位${currentPlayer + 1}`);
+              console.log(`[盲注调试] 当前检查座位: 座位${seatIndex + 1}, isSmallBlind: ${isSmallBlind}, isBigBlind: ${isBigBlind}`);
+              console.log(`[盲注调试] 新逻辑 - 小盲: 座位${smallBlindSeat + 1}, 大盲: 座位${bigBlindSeat + 1}`);
+            }
+          }
+          
           const isCurrentPlayerTurn = currentPlayer === seatIndex;
           
           // 检查是否是当前用户的座位（通过比较玩家数据）

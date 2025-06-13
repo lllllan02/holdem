@@ -340,7 +340,7 @@ func IsFourOfAKind(cs [5]InternalCard) *Hand {
 		}
 	}
 
-	if isHand == false {
+	if !isHand {
 		return nil
 	}
 
@@ -431,7 +431,7 @@ func IsThreeOfAKind(cs [5]InternalCard) *Hand {
 		}
 	}
 
-	if isHand == false {
+	if !isHand {
 		return nil
 	}
 
