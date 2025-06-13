@@ -18,7 +18,7 @@ const convertWSPlayerToLocal = (wsPlayer: WSPlayer, _: number) => {
     currentBet: wsPlayer.currentBet,
     holeCards: wsPlayer.holeCards || [],
     handRank: wsPlayer.handRank,
-    winAmount: wsPlayer.winAmount || 0,
+    winAmount: wsPlayer.winAmount,
   };
 };
 
@@ -281,6 +281,13 @@ function App() {
           }
         });
       }
+      
+      // 添加摊牌调试信息
+      if (newGameState.gamePhase === "showdown_reveal") {
+        console.log(`[摊牌状态] gamePhase: ${newGameState.gamePhase}`);
+        console.log(`[摊牌状态] showdownOrder:`, newGameState.showdownOrder);
+        console.log(`[摊牌状态] currentShowdown:`, newGameState.currentShowdown);
+      }
       setGameState(newGameState);
     });
 
@@ -360,10 +367,13 @@ function App() {
         seatedPlayers={seatedPlayers}
         currentUserSeat={currentUserSeat}
         gameStatus={gameState?.gameStatus || "waiting"}
+        gamePhase={gameState?.gamePhase || ""}
         communityCards={gameState?.communityCards || []}
         pot={gameState?.pot || 0}
         dealerPos={gameState?.dealerPos || -1}
         currentPlayer={gameState?.currentPlayer || -1}
+        showdownOrder={gameState?.showdownOrder || []}
+        currentShowdown={gameState?.currentShowdown || -1}
         onSit={handleSit}
         onLeave={handleLeave}
       />
@@ -844,6 +854,8 @@ function App() {
           </div>
         </div>
       )}
+      
+
       
       {/* 摊牌结果显示 */}
       {gameState && gameState.gamePhase === "showdown" && (

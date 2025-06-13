@@ -126,13 +126,26 @@ type IsHand func(cs [5]InternalCard) *Hand
 func FindWinningHands(players []*Player, communityCards []Card) []PlayerHand {
 	winners := make([]PlayerHand, 0)
 
+	log.Printf("[手牌比较] 开始比较 %d 个玩家的手牌", len(players))
+
 	// 找出拥有相同牌型的玩家
 	for _, player := range players {
+		if player == nil {
+			log.Printf("[手牌比较] 警告：遇到空玩家，跳过")
+			continue
+		}
+
+		bestHand := GetBestHand(player, communityCards)
+		if bestHand == nil {
+			log.Printf("[手牌比较] 警告：玩家 %s 的最佳手牌为空，跳过", player.Name)
+			continue
+		}
+
 		if len(winners) == 0 {
 			// 如果还没有赢家，将当前玩家设为默认赢家
-			winners = append(winners, PlayerHand{Hand: GetBestHand(player, communityCards), Player: player})
+			winners = append(winners, PlayerHand{Hand: bestHand, Player: player})
+			log.Printf("[手牌比较] 玩家 %s 成为第一个候选获胜者", player.Name)
 		} else {
-			bestHand := GetBestHand(player, communityCards)
 			winningHand := winners[0].Hand
 			result := CompareHand(bestHand, winningHand)
 			if result == GreaterThan {
@@ -140,12 +153,19 @@ func FindWinningHands(players []*Player, communityCards []Card) []PlayerHand {
 				winners = []PlayerHand{
 					{Hand: bestHand, Player: player},
 				}
+				log.Printf("[手牌比较] 玩家 %s 成为新的唯一获胜者", player.Name)
 			} else if result == EqualTo {
 				// 如果是平局，玩家将共享奖池
 				winners = append(winners, PlayerHand{Hand: bestHand, Player: player})
+				log.Printf("[手牌比较] 玩家 %s 与其他玩家平局，共享奖池", player.Name)
+			} else {
+				log.Printf("[手牌比较] 玩家 %s 的手牌较弱", player.Name)
 			}
 		}
 	}
+
+	log.Printf("[手牌比较] 最终获胜者数量: %d", len(winners))
+
 	// 按玩家筹码数排序
 	sort.SliceStable(winners, func(i, j int) bool {
 		return winners[i].Player.Chips < winners[j].Player.Chips
@@ -193,6 +213,11 @@ func GetBestHand(player *Player, communityCards []Card) *Hand {
 	// 如果牌数不足7张，返回高牌
 	if len(allCards) < 7 {
 		log.Printf("[调试] 牌数不足7张，返回高牌")
+		// 确保至少有一些牌来构成高牌
+		if len(allCards) == 0 {
+			log.Printf("[调试] 警告：没有任何牌，返回默认高牌")
+			return &Hand{Rank: HighCardRank, TieBreakers: []CardRank{Two}}
+		}
 		return &Hand{Rank: HighCardRank, TieBreakers: []CardRank{}}
 	}
 
@@ -220,6 +245,12 @@ func GetBestHand(player *Player, communityCards []Card) *Hand {
 				bestHand = currentHand
 			}
 		}
+	}
+
+	// 确保 bestHand 不为 nil
+	if bestHand == nil {
+		log.Printf("[调试] 警告：玩家 %s 的最佳手牌为空，返回默认高牌", player.Name)
+		bestHand = &Hand{Rank: HighCardRank, TieBreakers: []CardRank{Two}}
 	}
 
 	log.Printf("[调试] 玩家 %s 最佳牌型: %d (%s)", player.Name, bestHand.Rank, GetHandRankName(bestHand.Rank))

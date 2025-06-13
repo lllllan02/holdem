@@ -39,7 +39,7 @@ func (c *Client) sendGameState() {
 		playersCopy[i] = player
 
 		// 如果不是当前用户且不是摊牌阶段，隐藏手牌
-		if player.UserId != c.user.ID && c.hub.game.GamePhase != "showdown" {
+		if player.UserId != c.user.ID && c.hub.game.GamePhase != "showdown" && c.hub.game.GamePhase != "showdown_reveal" {
 			playersCopy[i].HoleCards = make([]poker.Card, len(player.HoleCards))
 			// 保留手牌数量但不显示内容
 			for j := range player.HoleCards {

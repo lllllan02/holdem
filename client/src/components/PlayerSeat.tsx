@@ -6,6 +6,10 @@ interface Player {
   currentBet?: number;
   holeCards?: Card[];
   isReady?: boolean;
+  handRank?: {
+    rank: number;
+  };
+  winAmount?: number;
 }
 
 export default function PlayerSeat({
@@ -13,6 +17,7 @@ export default function PlayerSeat({
   seat,
   style = {},
   gameStatus = "waiting",
+  gamePhase = "",
   isDealer = false,
   isSmallBlind = false,
   isBigBlind = false,
@@ -23,6 +28,7 @@ export default function PlayerSeat({
   seat: string;
   style?: React.CSSProperties;
   gameStatus?: string;
+  gamePhase?: string;
   isDealer?: boolean;
   isSmallBlind?: boolean;
   isBigBlind?: boolean;
@@ -46,8 +52,13 @@ export default function PlayerSeat({
         ...style,
         cursor: canSit ? "pointer" : "default",
         opacity: isEmpty && gameStatus === "playing" ? 0.5 : 1,
-        boxShadow: isCurrentPlayer ? "0 0 15px #FFD700" : "none",
-        border: isCurrentPlayer ? "3px solid #FFD700" : "2px solid #666",
+        boxShadow: isCurrentPlayer ? "0 0 15px #FFD700" : 
+                   (!isEmpty && player?.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "0 0 20px rgba(255, 215, 0, 0.9)" : "none",
+        border: isCurrentPlayer ? "3px solid #FFD700" : 
+                (!isEmpty && player?.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "3px solid #FFD700" : "2px solid #666",
+        animation: (!isEmpty && player?.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "winnerPulse 1.5s ease-in-out infinite" : "none",
+        background: (!isEmpty && player?.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "rgba(255, 215, 0, 0.2)" : 
+                   isEmpty ? "rgba(60,60,70,0.6)" : "rgba(255, 215, 0, 0.1)",
       }}
       onClick={canSit ? onSit : undefined}
     >
@@ -144,13 +155,47 @@ export default function PlayerSeat({
         </div>
       ) : (
         <>
-          <div className="player-seat-name">{player.name}</div>
-          {player.chips > 0 && (
-            <div className="player-seat-chips">{player.chips}</div>
-          )}
+          <div 
+            className="player-seat-name"
+            style={{
+              color: (player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "#FFD700" : "#FFD700",
+              textShadow: (player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "0 0 10px rgba(255, 215, 0, 0.8)" : "none",
+              fontWeight: (player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "bold" : "normal",
+            }}
+          >
+            {(player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "🏆 " : ""}{player.name}
+          </div>
+          
+          {/* 显示玩家拥有的筹码 */}
+          <div className="player-seat-chips">{player.chips}</div>
+          
+          {/* 获胜金额显示 */}
+          {(player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? (
+            <div
+              style={{
+                position: "absolute",
+                top: "-30px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "linear-gradient(135deg, #FFD700, #FFA500)",
+                color: "#000",
+                padding: "4px 8px",
+                borderRadius: "12px",
+                fontSize: "12px",
+                fontWeight: "bold",
+                border: "2px solid #FFD700",
+                whiteSpace: "nowrap",
+                boxShadow: "0 0 15px rgba(255, 215, 0, 0.6)",
+                animation: "winnerPulse 1.5s ease-in-out infinite",
+                zIndex: 5,
+              }}
+            >
+              +{player.winAmount}
+            </div>
+          ) : null}
 
           {/* 当前下注显示 - 只有当下注大于0时才显示 */}
-          {gameStatus === "playing" && player.currentBet && player.currentBet > 0 && (
+          {(gameStatus === "playing" && player.currentBet && player.currentBet > 0) ? (
             <div
               style={{
                 position: "absolute",
@@ -169,7 +214,7 @@ export default function PlayerSeat({
             >
               下注: {player.currentBet}
             </div>
-          )}
+          ) : null}
         </>
       )}
     </div>

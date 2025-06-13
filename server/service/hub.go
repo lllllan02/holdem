@@ -27,6 +27,10 @@ type Hub struct {
 	// 倒计时相关
 	countdownTicker *time.Ticker
 	countdownDone   chan bool
+
+	// 摊牌定时器相关
+	showdownTicker *time.Ticker
+	showdownDone   chan bool
 }
 
 // NewHub 创建一个新的 Hub
@@ -38,6 +42,7 @@ func NewHub() *Hub {
 		unregister:    make(chan *Client),
 		game:          poker.NewGame(),
 		countdownDone: make(chan bool, 1),
+		showdownDone:  make(chan bool, 1),
 	}
 	log.Printf("[Hub] 创建新的 Hub 实例\n")
 	return hub
@@ -46,6 +51,12 @@ func NewHub() *Hub {
 // broadcastGameState 广播游戏状态给所有客户端
 func (h *Hub) broadcastGameState() {
 	log.Printf("[Hub] 广播游戏状态更新, 目标客户端数: %d\n", len(h.clients))
+
+	// 检查是否需要启动摊牌定时器
+	if h.game.GamePhase == "showdown_reveal" && h.showdownTicker == nil {
+		log.Printf("[Hub] 检测到摊牌阶段，启动摊牌定时器")
+		h.startShowdownTimer()
+	}
 
 	// 为每个客户端单独发送定制的游戏状态
 	for _, client := range h.clients {
@@ -191,5 +202,81 @@ func (h *Hub) cancelCountdown() {
 	if h.game.CountdownTimer > 0 {
 		h.game.CountdownTimer = -1 // 设置为-1表示倒计时已取消
 		log.Printf("[Hub] 倒计时已重置为-1")
+	}
+}
+
+// startShowdownTimer 开始摊牌定时器
+func (h *Hub) startShowdownTimer() {
+	// 先停止之前的摊牌定时器
+	if h.showdownTicker != nil {
+		h.showdownTicker.Stop()
+		h.showdownTicker = nil
+		log.Printf("[Hub] 停止之前的摊牌定时器")
+	}
+
+	log.Printf("[Hub] 开始摊牌定时器，每1秒推进一次")
+
+	// 创建新的 done 通道
+	h.showdownDone = make(chan bool, 1)
+
+	// 使用 ticker 来定时推进摊牌
+	h.showdownTicker = time.NewTicker(1 * time.Second) // 每1秒推进一次
+
+	go func() {
+		ticker := h.showdownTicker
+		done := h.showdownDone
+
+		defer func() {
+			if ticker != nil {
+				ticker.Stop()
+			}
+			log.Printf("[Hub] 摊牌定时器协程结束")
+		}()
+
+		for {
+			select {
+			case <-ticker.C:
+				// 检查是否还在摊牌阶段
+				if h.game.GamePhase == "showdown_reveal" {
+					log.Printf("[Hub] 定时器触发，推进下一个摊牌")
+					h.game.AdvanceShowdown()
+					h.broadcastGameState()
+
+					// 检查是否摊牌已完成（游戏阶段已改变）
+					if h.game.GamePhase != "showdown_reveal" {
+						log.Printf("[Hub] 摊牌阶段结束，停止定时器")
+						h.cancelShowdownTimer()
+						return
+					}
+				} else {
+					// 摊牌结束，停止定时器
+					log.Printf("[Hub] 摊牌阶段结束，停止定时器")
+					h.cancelShowdownTimer()
+					return
+				}
+			case <-done:
+				log.Printf("[Hub] 摊牌定时器被取消")
+				return
+			}
+		}
+	}()
+}
+
+// cancelShowdownTimer 取消摊牌定时器
+func (h *Hub) cancelShowdownTimer() {
+	if h.showdownTicker != nil {
+		h.showdownTicker.Stop()
+		h.showdownTicker = nil
+		log.Printf("[Hub] 停止摊牌定时器 ticker")
+	}
+
+	// 发送取消信号（非阻塞）
+	if h.showdownDone != nil {
+		select {
+		case h.showdownDone <- true:
+			log.Printf("[Hub] 发送摊牌定时器取消信号")
+		default:
+			log.Printf("[Hub] 摊牌定时器取消信号通道已满或已关闭")
+		}
 	}
 }

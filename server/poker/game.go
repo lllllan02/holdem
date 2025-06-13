@@ -13,11 +13,12 @@ const (
 
 // 游戏阶段常量
 const (
-	GamePhasePreFlop  = "preflop"  // 翻牌前
-	GamePhaseFlop     = "flop"     // 翻牌
-	GamePhaseTurn     = "turn"     // 转牌
-	GamePhaseRiver    = "river"    // 河牌
-	GamePhaseShowdown = "showdown" // 摊牌
+	GamePhasePreFlop        = "preflop"         // 翻牌前
+	GamePhaseFlop           = "flop"            // 翻牌
+	GamePhaseTurn           = "turn"            // 转牌
+	GamePhaseRiver          = "river"           // 河牌
+	GamePhaseShowdown       = "showdown"        // 摊牌
+	GamePhaseShowdownReveal = "showdown_reveal" // 逐步摊牌
 )
 
 // 默认配置常量
@@ -41,6 +42,11 @@ type Game struct {
 	BigBlind       int      `json:"bigBlind"`       // 大盲注
 	Deck           []Card   `json:"-"`              // 牌堆（不发送给客户端）
 	CountdownTimer int      `json:"countdownTimer"` // 倒计时（秒）
+
+	// 摊牌相关字段
+	ShowdownOrder   []int `json:"showdownOrder"`   // 摊牌顺序（玩家索引）
+	CurrentShowdown int   `json:"currentShowdown"` // 当前摊牌的玩家索引
+	ShowdownTimer   int   `json:"showdownTimer"`   // 摊牌倒计时
 }
 
 // Card 扑克牌结构
@@ -58,18 +64,21 @@ func NewGame() *Game {
 	}
 
 	return &Game{
-		Players:        players,
-		GameStatus:     GameStatusWaiting,
-		GamePhase:      "",
-		CommunityCards: make([]Card, 0, 5),
-		Pot:            0,
-		CurrentBet:     0,
-		DealerPos:      -1, // 初始化为-1，表示还未设置庄家
-		CurrentPlayer:  -1,
-		SmallBlind:     DefaultSmallBlind,
-		BigBlind:       DefaultBigBlind,
-		Deck:           make([]Card, 0, 52),
-		CountdownTimer: 0,
+		Players:         players,
+		GameStatus:      GameStatusWaiting,
+		GamePhase:       "",
+		CommunityCards:  make([]Card, 0, 5),
+		Pot:             0,
+		CurrentBet:      0,
+		DealerPos:       -1, // 初始化为-1，表示还未设置庄家
+		CurrentPlayer:   -1,
+		SmallBlind:      DefaultSmallBlind,
+		BigBlind:        DefaultBigBlind,
+		Deck:            make([]Card, 0, 52),
+		CountdownTimer:  0,
+		ShowdownOrder:   make([]int, 0),
+		CurrentShowdown: -1,
+		ShowdownTimer:   0,
 	}
 }
 
@@ -572,20 +581,113 @@ func (g *Game) showdown() {
 		return // 不立即结束游戏，让前端显示结果
 	}
 
-	// 为所有参与游戏的玩家设置手牌信息（用于前端显示）
-	for i := range g.Players {
-		player := &g.Players[i]
-		if !player.IsEmpty() && len(player.HoleCards) == 2 {
-			bestHand := GetBestHand(player, g.CommunityCards)
-			// 转换为旧格式以保持兼容性
-			oldHandRank := ConvertToOldHandRank(bestHand)
-			player.HandRank = &oldHandRank
-			log.Printf("[摊牌] 玩家 %s 的牌型: %s (状态: %s)", player.Name, GetHandRankName(bestHand.Rank), player.Status)
+	// 启动逐步摊牌流程
+	g.startShowdownReveal()
+}
+
+// startShowdownReveal 开始逐步摊牌流程
+func (g *Game) startShowdownReveal() {
+	log.Printf("[摊牌] 开始逐步摊牌流程")
+
+	// 切换到逐步摊牌阶段
+	g.GamePhase = GamePhaseShowdownReveal
+
+	// 确定摊牌顺序：从小盲位开始，按座位顺序
+	g.ShowdownOrder = make([]int, 0)
+
+	// 找到小盲位
+	smallBlindPos := -1
+	for i, player := range g.Players {
+		if !player.IsEmpty() && player.Status != PlayerStatusFolded {
+			// 简化逻辑：从第一个未弃牌的玩家开始
+			if smallBlindPos == -1 {
+				smallBlindPos = i
+			}
 		}
 	}
 
-	// 使用新的手牌比较算法找出获胜者（只考虑未弃牌的玩家）
+	// 从小盲位开始，按座位顺序添加所有未弃牌的玩家
+	if smallBlindPos != -1 {
+		for i := 0; i < MaxSeats; i++ {
+			pos := (smallBlindPos + i) % MaxSeats
+			player := &g.Players[pos]
+			if !player.IsEmpty() && player.Status != PlayerStatusFolded {
+				g.ShowdownOrder = append(g.ShowdownOrder, pos)
+				log.Printf("[摊牌] 添加玩家 %s (座位%d) 到摊牌顺序", player.Name, pos+1)
+			}
+		}
+	}
+
+	// 开始逐步摊牌，不使用倒计时
+	g.CurrentShowdown = -1 // 初始化为-1，第一次AdvanceShowdown会变成0
+	g.ShowdownTimer = 0    // 不使用倒计时
+
+	log.Printf("[摊牌] 摊牌顺序初始化完成，共%d个玩家", len(g.ShowdownOrder))
+}
+
+// NextShowdownReveal 进行下一个玩家的摊牌
+func (g *Game) NextShowdownReveal() {
+	if g.CurrentShowdown >= 0 && g.CurrentShowdown < len(g.ShowdownOrder) {
+		// 为当前玩家计算手牌
+		playerIndex := g.ShowdownOrder[g.CurrentShowdown]
+		player := &g.Players[playerIndex]
+
+		if len(player.HoleCards) == 2 {
+			bestHand := GetBestHand(player, g.CommunityCards)
+			oldHandRank := ConvertToOldHandRank(bestHand)
+			player.HandRank = &oldHandRank
+			log.Printf("[摊牌] 玩家 %s 摊牌: %s", player.Name, GetHandRankName(bestHand.Rank))
+		}
+	}
+}
+
+// AdvanceShowdown 推进到下一个摊牌玩家
+func (g *Game) AdvanceShowdown() {
+	// 移动到下一个玩家
+	g.CurrentShowdown++
+
+	// 检查是否所有玩家都已摊牌
+	if g.CurrentShowdown >= len(g.ShowdownOrder) {
+		// 所有玩家都已摊牌，计算获胜者
+		log.Printf("[摊牌] 所有玩家摊牌完成，准备结算")
+		g.finishShowdown()
+	} else {
+		// 还有玩家需要摊牌，记录下一个玩家
+		playerIndex := g.ShowdownOrder[g.CurrentShowdown]
+		log.Printf("[摊牌] 下一个玩家: %s (座位%d)", g.Players[playerIndex].Name, playerIndex+1)
+		// 为下一个玩家摊牌
+		g.NextShowdownReveal()
+	}
+}
+
+// finishShowdown 完成摊牌，计算获胜者
+func (g *Game) finishShowdown() {
+	log.Printf("[摊牌] 所有玩家摊牌完成，计算获胜者")
+
+	// 切换回普通摊牌阶段
+	g.GamePhase = GamePhaseShowdown
+
+	// 收集所有未弃牌的玩家
+	var activePlayers []*Player
+	for _, playerIndex := range g.ShowdownOrder {
+		player := &g.Players[playerIndex]
+		activePlayers = append(activePlayers, player)
+	}
+
+	log.Printf("[摊牌] 活跃玩家数量: %d", len(activePlayers))
+	if len(activePlayers) == 0 {
+		log.Printf("[摊牌] 警告：没有活跃玩家，跳过摊牌")
+		return
+	}
+
+	// 使用新的手牌比较算法找出获胜者
 	winners := FindWinningHands(activePlayers, g.CommunityCards)
+
+	// 检查是否有获胜者，防止除零错误
+	if len(winners) == 0 {
+		log.Printf("[摊牌] 警告：没有找到获胜者，跳过底池分配")
+		return
+	}
 
 	// 分配底池
 	winAmount := g.Pot / len(winners)
@@ -603,7 +705,10 @@ func (g *Game) showdown() {
 		log.Printf("[游戏] 玩家 %s 获胜，赢得 %d 筹码", winner.Player.Name, amount)
 	}
 
-	// 不立即结束游戏，让前端显示结果后再结束
+	// 重置摊牌相关字段
+	g.ShowdownOrder = make([]int, 0)
+	g.CurrentShowdown = -1
+	g.ShowdownTimer = 0
 }
 
 // CheckAllPlayersReady 检查是否所有玩家都已准备

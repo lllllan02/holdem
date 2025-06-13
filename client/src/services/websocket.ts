@@ -62,6 +62,11 @@ export interface GameState {
   smallBlind: number;       // 小盲注
   bigBlind: number;         // 大盲注
   countdownTimer?: number;  // 倒计时（秒）
+  
+  // 摊牌相关字段
+  showdownOrder?: number[];  // 摊牌顺序（玩家索引）
+  currentShowdown?: number;  // 当前摊牌的玩家索引
+  showdownTimer?: number;    // 摊牌倒计时
 }
 
 // 回调函数类型

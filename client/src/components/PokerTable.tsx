@@ -2,6 +2,7 @@ import React from "react";
 import CommunityCards from "./CommunityCards";
 import PlayerSeat from "./PlayerSeat";
 import type { Card } from "../services/websocket";
+import { getHandName } from "../services/websocket";
 
 // 获取花色符号
 function getSuitSymbol(suit: string): string {
@@ -38,29 +39,60 @@ interface Player {
   chips: number;
   currentBet?: number;
   holeCards?: Card[];
+  handRank?: {
+    rank: number;
+  };
+  winAmount?: number;
 }
 
 export default function PokerTable({
   seatedPlayers = {},
   currentUserSeat,
   gameStatus = "waiting",
+  gamePhase = "",
   communityCards = [],
   pot = 0,
   dealerPos = -1,
   currentPlayer = -1,
+  showdownOrder = [],
+  currentShowdown = -1,
   onSit,
   onLeave,
 }: {
   seatedPlayers?: { [seat: string]: Player };
   currentUserSeat?: string | null;
   gameStatus?: string;
+  gamePhase?: string;
   communityCards?: Card[];
   pot?: number;
   dealerPos?: number;
   currentPlayer?: number;
+  showdownOrder?: number[];
+  currentShowdown?: number;
   onSit?: (seat: string) => void;
   onLeave?: (seat: string) => void;
 }) {
+  // 判断是否应该显示某个座位的手牌
+  const shouldShowCard = (seatIndex: number) => {
+    // 在最终摊牌阶段，显示所有手牌
+    if (gamePhase === "showdown") return true;
+    
+    // 在逐步摊牌阶段，根据进度显示
+    if (gamePhase !== "showdown_reveal") return false;
+    
+    // 找到该座位在摊牌顺序中的位置
+    const orderIndex = showdownOrder.indexOf(seatIndex);
+    if (orderIndex === -1) return false; // 不在摊牌顺序中
+    
+    // 如果当前摊牌进度已经到达或超过该玩家，则显示手牌
+    const shouldShow = orderIndex <= currentShowdown;
+    
+    // 添加调试信息
+    console.log(`[摊牌调试] 座位${seatIndex + 1}: gamePhase=${gamePhase}, orderIndex=${orderIndex}, currentShowdown=${currentShowdown}, shouldShow=${shouldShow}`);
+    
+    return shouldShow;
+  };
+
   const width = 900,
     height = 500;
   const margin = 18;
@@ -283,10 +315,10 @@ export default function PokerTable({
           
           const isCurrentPlayerTurn = currentPlayer === seatIndex;
           
-          // 检查是否是当前用户的座位（通过比较玩家数据）
+          // 检查是否是当前用户的座位
           const isCurrentUser = !!isCurrentUserSeat;
           
-          // 计算手牌显示位置（与选手对齐，并在桌内合适位置）
+          // 计算手牌显示位置（在桌内合适位置）
           let cardX = px;
           let cardY = py;
           
@@ -322,6 +354,7 @@ export default function PokerTable({
                 player={player}
                 seat={pos.seat}
                 gameStatus={gameStatus}
+                gamePhase={gamePhase}
                 isDealer={isDealer}
                 isSmallBlind={isSmallBlind}
                 isBigBlind={isBigBlind}
@@ -344,39 +377,82 @@ export default function PokerTable({
                   top: cardY,
                   transform: "translate(-50%, -50%)",
                   display: 'flex',
-                  gap: '3px',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
                   zIndex: 3,
+                  // 获胜者动画效果
+                  ...(player.winAmount && player.winAmount > 0 && gamePhase === "showdown" ? {
+                    animation: "winnerGlow 2s ease-in-out infinite",
+                    filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.8))",
+                  } : {}),
                 }}>
-                  {player.holeCards.map((card, index) => (
+                  {/* 手牌 */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '3px',
+                  }}>
+                    {player.holeCards.map((card, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          width: '36px',
+                          height: '50px',
+                          background: (isCurrentUser || (gamePhase === "showdown_reveal" && shouldShowCard(seatIndex)) || gamePhase === "showdown") && card.suit ? 'white' : '#2d3748',
+                          border: '1px solid #4a5568',
+                          borderRadius: '5px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          boxShadow: '0 3px 6px rgba(0,0,0,0.4)',
+                        }}
+                      >
+                        {(() => {
+                          const shouldShow = isCurrentUser || (gamePhase === "showdown_reveal" && shouldShowCard(seatIndex)) || gamePhase === "showdown";
+                          const hasCard = card.suit && card.rank;
+                          
+                          // 添加调试信息
+                          if (gamePhase === "showdown_reveal" || gamePhase === "showdown") {
+                            console.log(`[手牌调试] 座位${seatIndex + 1}, 卡片${index + 1}: shouldShow=${shouldShow}, hasCard=${hasCard}, suit="${card.suit}", rank="${card.rank}", card:`, card);
+                          }
+                          
+                          return shouldShow && hasCard ? (
+                            <>
+                              <div style={{ color: getSuitColor(card.suit) }}>{card.rank}</div>
+                              <div style={{ color: getSuitColor(card.suit), fontSize: '14px' }}>
+                                {getSuitSymbol(card.suit)}
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ color: '#a0aec0', fontSize: '16px' }}>?</div>
+                          );
+                        })()}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* 牌型显示 - 在摊牌阶段显示 */}
+                  {((gamePhase === "showdown_reveal" && shouldShowCard(seatIndex)) || gamePhase === "showdown") && player.handRank && (
                     <div
-                      key={index}
                       style={{
-                        width: '36px',
-                        height: '50px',
-                        background: isCurrentUser && card.suit ? 'white' : '#2d3748',
-                        border: '1px solid #4a5568',
-                        borderRadius: '5px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        boxShadow: '0 3px 6px rgba(0,0,0,0.4)',
+                        background: player.winAmount && player.winAmount > 0 ? "rgba(255, 215, 0, 0.9)" : "rgba(76, 175, 80, 0.9)",
+                        color: player.winAmount && player.winAmount > 0 ? "#000" : "white",
+                        padding: "4px 8px",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        whiteSpace: "nowrap",
+                        boxShadow: player.winAmount && player.winAmount > 0 ? "0 0 15px rgba(255, 215, 0, 0.8)" : "0 2px 6px rgba(0,0,0,0.3)",
+                        border: player.winAmount && player.winAmount > 0 ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.3)",
+                        animation: player.winAmount && player.winAmount > 0 ? "winnerPulse 1.5s ease-in-out infinite" : "none",
                       }}
                     >
-                      {isCurrentUser && card.suit ? (
-                        <>
-                          <div style={{ color: getSuitColor(card.suit) }}>{card.rank}</div>
-                          <div style={{ color: getSuitColor(card.suit), fontSize: '14px' }}>
-                            {getSuitSymbol(card.suit)}
-                          </div>
-                        </>
-                      ) : (
-                        <div style={{ color: '#a0aec0', fontSize: '16px' }}>?</div>
-                      )}
+                      {player.winAmount && player.winAmount > 0 ? "🏆 " : ""}{getHandName(player.handRank.rank)}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
 
