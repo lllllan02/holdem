@@ -3,6 +3,22 @@ import CommunityCards from "./CommunityCards";
 import PlayerSeat from "./PlayerSeat";
 import type { Card } from "../services/websocket";
 
+// 获取花色符号
+function getSuitSymbol(suit: string): string {
+  switch (suit) {
+    case 'hearts': return '♥';
+    case 'diamonds': return '♦';
+    case 'clubs': return '♣';
+    case 'spades': return '♠';
+    default: return '';
+  }
+}
+
+// 获取花色颜色
+function getSuitColor(suit: string): string {
+  return (suit === 'hearts' || suit === 'diamonds') ? '#ff0000' : '#000000';
+}
+
 const SEAT_POSITIONS = [
   // 7个座位，从左下开始顺时针排列
   // 左侧2人（从下到上）
@@ -21,11 +37,13 @@ interface Player {
   name: string;
   chips: number;
   currentBet?: number;
+  holeCards?: Card[];
 }
 
 export default function PokerTable({
   seatedPlayers = {},
   currentUserSeat,
+  currentUserId,
   gameStatus = "waiting",
   communityCards = [],
   pot = 0,
@@ -38,6 +56,7 @@ export default function PokerTable({
 }: {
   seatedPlayers?: { [seat: string]: Player };
   currentUserSeat?: string | null;
+  currentUserId?: string;
   gameStatus?: string;
   communityCards?: Card[];
   pot?: number;
@@ -210,6 +229,40 @@ export default function PokerTable({
           const isBigBlind = gameStatus === "playing" && dealerPos >= 0 && 
             ((dealerPos + 2) % 7) === seatIndex;
           const isCurrentPlayerTurn = currentPlayer === seatIndex;
+          
+          // 检查是否是当前用户的座位（通过比较玩家数据）
+          const isCurrentUser = !!isCurrentUserSeat;
+          
+          // 计算手牌显示位置（与选手对齐，并在桌内合适位置）
+          let cardX = px;
+          let cardY = py;
+          
+          // 桌子的边界和中心
+          const centerX = width / 2;
+          const centerY = height / 2;
+          const tableMargin = 80; // 距离桌边的距离
+          
+          if (pos.seat.includes("1") || pos.seat.includes("2")) {
+            // 左侧座位：手牌显示在选手右侧，朝向桌子中心
+            cardX = margin + tableMargin;
+            cardY = py; // 与选手Y坐标对齐
+          } else if (pos.seat.includes("6") || pos.seat.includes("7")) {
+            // 右侧座位：手牌显示在选手左侧，朝向桌子中心
+            cardX = width - margin - tableMargin;
+            cardY = py; // 与选手Y坐标对齐
+          } else if (pos.seat.includes("3")) {
+            // 座位3：手牌显示在选手下方，朝向桌子中心
+            cardX = px; // 与选手X坐标对齐
+            cardY = margin + tableMargin;
+          } else if (pos.seat.includes("4")) {
+            // 座位4：手牌显示在选手下方，朝向桌子中心
+            cardX = px; // 与选手X坐标对齐
+            cardY = margin + tableMargin;
+          } else if (pos.seat.includes("5")) {
+            // 座位5：手牌显示在选手下方，朝向桌子中心
+            cardX = px; // 与选手X坐标对齐
+            cardY = margin + tableMargin;
+          }
 
           return (
             <React.Fragment key={i}>
@@ -222,6 +275,7 @@ export default function PokerTable({
                 isSmallBlind={isSmallBlind}
                 isBigBlind={isBigBlind}
                 isCurrentPlayer={isCurrentPlayerTurn}
+                isCurrentUser={isCurrentUser}
                 onSit={() => onSit?.(pos.seat)}
                 style={{
                   position: "absolute",
@@ -231,6 +285,50 @@ export default function PokerTable({
                   zIndex: 2,
                 }}
               />
+              
+              {/* 手牌显示在桌内 */}
+              {gameStatus === "playing" && player && player.holeCards && player.holeCards.length > 0 && (
+                <div style={{
+                  position: "absolute",
+                  left: cardX,
+                  top: cardY,
+                  transform: "translate(-50%, -50%)",
+                  display: 'flex',
+                  gap: '3px',
+                  zIndex: 3,
+                }}>
+                  {player.holeCards.map((card, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        width: '36px',
+                        height: '50px',
+                        background: isCurrentUser && card.suit ? 'white' : '#2d3748',
+                        border: '1px solid #4a5568',
+                        borderRadius: '5px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 3px 6px rgba(0,0,0,0.4)',
+                      }}
+                    >
+                      {isCurrentUser && card.suit ? (
+                        <>
+                          <div style={{ color: getSuitColor(card.suit) }}>{card.rank}</div>
+                          <div style={{ color: getSuitColor(card.suit), fontSize: '14px' }}>
+                            {getSuitSymbol(card.suit)}
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ color: '#a0aec0', fontSize: '16px' }}>?</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* 如果是当前用户的座位，显示离开按钮 */}
               {isCurrentUserSeat && gameStatus === "waiting" && (

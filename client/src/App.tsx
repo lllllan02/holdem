@@ -16,6 +16,7 @@ const convertWSPlayerToLocal = (wsPlayer: WSPlayer, _: number) => {
     name: wsPlayer.name,
     chips: wsPlayer.chips,
     currentBet: wsPlayer.currentBet || 0,
+    holeCards: wsPlayer.holeCards || [],
   };
 };
 
@@ -152,6 +153,14 @@ function App() {
     // 注册WebSocket回调
     wsService.onGameState((newGameState: GameState) => {
       console.log("Received game state:", newGameState);
+      // 添加手牌调试信息
+      if (newGameState.players) {
+        newGameState.players.forEach((player, index) => {
+          if (player.holeCards && player.holeCards.length > 0) {
+            console.log(`Player ${index + 1} (${player.name}) has ${player.holeCards.length} hole cards:`, player.holeCards);
+          }
+        });
+      }
       setGameState(newGameState);
     });
 
@@ -177,6 +186,7 @@ function App() {
       <PokerTable
         seatedPlayers={seatedPlayers}
         currentUserSeat={currentUserSeat}
+        currentUserId={user?.id}
         gameStatus={gameState?.gameStatus || "waiting"}
         communityCards={gameState?.communityCards || []}
         pot={gameState?.pot || 0}

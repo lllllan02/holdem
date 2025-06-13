@@ -1,7 +1,26 @@
+import type { Card } from "../services/websocket";
+
 interface Player {
   name: string;
   chips: number;
   currentBet?: number;
+  holeCards?: Card[];
+}
+
+// 获取花色符号
+function getSuitSymbol(suit: string): string {
+  switch (suit) {
+    case 'hearts': return '♥';
+    case 'diamonds': return '♦';
+    case 'clubs': return '♣';
+    case 'spades': return '♠';
+    default: return '';
+  }
+}
+
+// 获取花色颜色
+function getSuitColor(suit: string): string {
+  return (suit === 'hearts' || suit === 'diamonds') ? '#ff0000' : '#000000';
 }
 
 export default function PlayerSeat({
@@ -13,6 +32,7 @@ export default function PlayerSeat({
   isSmallBlind = false,
   isBigBlind = false,
   isCurrentPlayer = false,
+  isCurrentUser = false,
   onSit,
 }: {
   player?: Player;
@@ -23,6 +43,7 @@ export default function PlayerSeat({
   isSmallBlind?: boolean;
   isBigBlind?: boolean;
   isCurrentPlayer?: boolean;
+  isCurrentUser?: boolean;
   onSit?: () => void;
 }) {
   const isEmpty = !player;
@@ -105,6 +126,7 @@ export default function PlayerSeat({
           <div className="player-seat-name">{player.name}</div>
           <div className="player-seat-chips">{player.chips}</div>
           
+          {/* 当前下注显示 */}
           {player.currentBet && player.currentBet > 0 && (
             <div style={{
               position: 'absolute',

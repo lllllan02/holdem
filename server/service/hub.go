@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"log"
 
 	"github.com/lllllan02/holdem/poker"
@@ -40,21 +39,12 @@ func NewHub() *Hub {
 
 // broadcastGameState 广播游戏状态给所有客户端
 func (h *Hub) broadcastGameState() {
-	gameStateMsg := WSMessage{
-		Type: MSG_GAME_STATE,
-		Data: GameStateData{
-			Game: h.game,
-		},
-	}
-
-	messageBytes, err := json.Marshal(gameStateMsg)
-	if err != nil {
-		log.Printf("[Hub] 序列化游戏状态失败, 错误: %v\n", err)
-		return
-	}
-
 	log.Printf("[Hub] 广播游戏状态更新, 目标客户端数: %d\n", len(h.clients))
-	h.broadcast <- messageBytes
+
+	// 为每个客户端单独发送定制的游戏状态
+	for _, client := range h.clients {
+		client.sendGameState()
+	}
 }
 
 // Run 启动 hub 的消息处理循环

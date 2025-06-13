@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/lllllan02/holdem/poker"
 )
 
 // Client 代表一个 WebSocket 客户端连接
@@ -28,10 +29,30 @@ type Client struct {
 
 // sendGameState 发送当前游戏状态给客户端
 func (c *Client) sendGameState() {
+	// 创建游戏状态的副本，用于隐藏其他玩家的手牌
+	gameStateCopy := *c.hub.game
+	playersCopy := make([]poker.Player, len(c.hub.game.Players))
+
+	// 复制玩家数据，隐藏其他玩家的手牌
+	for i, player := range c.hub.game.Players {
+		playersCopy[i] = player
+
+		// 如果不是当前用户，隐藏手牌
+		if player.UserId != c.user.ID {
+			playersCopy[i].HoleCards = make([]poker.Card, len(player.HoleCards))
+			// 保留手牌数量但不显示内容
+			for j := range player.HoleCards {
+				playersCopy[i].HoleCards[j] = poker.Card{} // 空牌
+			}
+		}
+	}
+
+	gameStateCopy.Players = playersCopy
+
 	gameStateMsg := WSMessage{
 		Type: MSG_GAME_STATE,
 		Data: GameStateData{
-			Game: c.hub.game,
+			Game: &gameStateCopy,
 		},
 	}
 
