@@ -145,9 +145,11 @@ export default function PlayerSeat({
       ) : (
         <>
           <div className="player-seat-name">{player.name}</div>
-          <div className="player-seat-chips">{player.chips}</div>
+          {player.chips > 0 && (
+            <div className="player-seat-chips">{player.chips}</div>
+          )}
 
-          {/* 当前下注显示 */}
+          {/* 当前下注显示 - 只有当下注大于0时才显示 */}
           {gameStatus === "playing" && player.currentBet && player.currentBet > 0 && (
             <div
               style={{

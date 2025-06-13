@@ -472,6 +472,16 @@ func (g *Game) isRoundComplete() bool {
 
 // nextPhase 进入下一个游戏阶段
 func (g *Game) nextPhase() {
+	// 检查是否应该直接进入摊牌阶段
+	if g.shouldGoToShowdown() {
+		// 先发完所有公共牌
+		g.dealRemainingCards()
+		// 直接进入摊牌
+		g.GamePhase = GamePhaseShowdown
+		g.showdown()
+		return
+	}
+
 	// 重置所有玩家的行动状态和当前下注
 	for i := range g.Players {
 		if !g.Players[i].IsEmpty() && g.Players[i].Status != PlayerStatusFolded {
@@ -621,6 +631,12 @@ func (g *Game) SetPlayerReady(userId string, ready bool) bool {
 
 	for i := range g.Players {
 		if g.Players[i].UserId == userId && !g.Players[i].IsEmpty() {
+			// 检查玩家是否有筹码，没有筹码的玩家不能准备
+			if ready && g.Players[i].Chips <= 0 {
+				log.Printf("[游戏] 玩家 %s 筹码不足，无法准备游戏", g.Players[i].Name)
+				return false
+			}
+
 			g.Players[i].IsReady = ready
 			log.Printf("[游戏] 玩家 %s %s", g.Players[i].Name, map[bool]string{true: "已准备", false: "取消准备"}[ready])
 			return true
@@ -645,4 +661,48 @@ func (g *Game) GetReadyPlayersCount() (int, int) {
 	}
 
 	return readyPlayers, sittingPlayers
+}
+
+// shouldGoToShowdown 检查是否应该直接进入摊牌阶段
+func (g *Game) shouldGoToShowdown() bool {
+	activePlayers := 0
+	playersCanAct := 0
+
+	for _, player := range g.Players {
+		if !player.IsEmpty() && player.Status != PlayerStatusFolded {
+			activePlayers++
+			// 统计还能行动的玩家（坐着且有筹码且未行动）
+			if player.Status == PlayerStatusSitting && player.Chips > 0 && !player.HasActed {
+				playersCanAct++
+			}
+		}
+	}
+
+	// 如果只剩一个玩家，或者没有玩家能继续行动，直接摊牌
+	return activePlayers <= 1 || playersCanAct == 0
+}
+
+// dealRemainingCards 发完剩余的公共牌
+func (g *Game) dealRemainingCards() {
+	switch g.GamePhase {
+	case GamePhasePreFlop:
+		// 发翻牌
+		g.dealCard() // 烧牌
+		for i := 0; i < 3; i++ {
+			card := g.dealCard()
+			g.CommunityCards = append(g.CommunityCards, card)
+		}
+		fallthrough
+	case GamePhaseFlop:
+		// 发转牌
+		g.dealCard() // 烧牌
+		card := g.dealCard()
+		g.CommunityCards = append(g.CommunityCards, card)
+		fallthrough
+	case GamePhaseTurn:
+		// 发河牌
+		g.dealCard() // 烧牌
+		card := g.dealCard()
+		g.CommunityCards = append(g.CommunityCards, card)
+	}
 }

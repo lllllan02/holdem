@@ -501,6 +501,17 @@ func (c *Client) handleEndGame() {
 
 // handleReady 处理玩家准备
 func (c *Client) handleReady() {
+	// 先检查玩家是否有筹码
+	for _, player := range c.hub.game.Players {
+		if player.UserId == c.user.ID && !player.IsEmpty() {
+			if player.Chips <= 0 {
+				c.sendError("筹码不足，请离开座位重新落座")
+				return
+			}
+			break
+		}
+	}
+
 	if c.hub.game.SetPlayerReady(c.user.ID, true) {
 		log.Printf("[WS] 玩家准备成功 - %s", c.user)
 
