@@ -40,6 +40,7 @@ type Game struct {
 	SmallBlind     int      `json:"smallBlind"`     // 小盲注
 	BigBlind       int      `json:"bigBlind"`       // 大盲注
 	Deck           []Card   `json:"-"`              // 牌堆（不发送给客户端）
+	CountdownTimer int      `json:"countdownTimer"` // 倒计时（秒）
 }
 
 // Card 扑克牌结构
@@ -68,6 +69,7 @@ func NewGame() *Game {
 		SmallBlind:     DefaultSmallBlind,
 		BigBlind:       DefaultBigBlind,
 		Deck:           make([]Card, 0, 52),
+		CountdownTimer: 0,
 	}
 }
 
@@ -587,4 +589,60 @@ func (g *Game) showdown() {
 	}
 
 	// 不立即结束游戏，让前端显示结果后再结束
+}
+
+// CheckAllPlayersReady 检查是否所有玩家都已准备
+func (g *Game) CheckAllPlayersReady() bool {
+	if g.GameStatus != GameStatusWaiting {
+		return false
+	}
+
+	sittingPlayers := 0
+	readyPlayers := 0
+
+	for _, player := range g.Players {
+		if !player.IsEmpty() && player.Status == PlayerStatusSitting {
+			sittingPlayers++
+			if player.IsReady {
+				readyPlayers++
+			}
+		}
+	}
+
+	// 至少需要2个玩家，且所有玩家都已准备
+	return sittingPlayers >= MinPlayers && sittingPlayers == readyPlayers
+}
+
+// SetPlayerReady 设置玩家准备状态
+func (g *Game) SetPlayerReady(userId string, ready bool) bool {
+	if g.GameStatus != GameStatusWaiting {
+		return false
+	}
+
+	for i := range g.Players {
+		if g.Players[i].UserId == userId && !g.Players[i].IsEmpty() {
+			g.Players[i].IsReady = ready
+			log.Printf("[游戏] 玩家 %s %s", g.Players[i].Name, map[bool]string{true: "已准备", false: "取消准备"}[ready])
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetReadyPlayersCount 获取已准备的玩家数量
+func (g *Game) GetReadyPlayersCount() (int, int) {
+	sittingPlayers := 0
+	readyPlayers := 0
+
+	for _, player := range g.Players {
+		if !player.IsEmpty() && player.Status == PlayerStatusSitting {
+			sittingPlayers++
+			if player.IsReady {
+				readyPlayers++
+			}
+		}
+	}
+
+	return readyPlayers, sittingPlayers
 }

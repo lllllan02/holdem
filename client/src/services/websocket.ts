@@ -11,7 +11,9 @@ export type MessageType =
   | 'call'
   | 'raise'
   | 'check'
-  | 'end_game';
+  | 'end_game'
+  | 'ready'
+  | 'unready';
 
 // WebSocket消息结构
 export interface WSMessage {
@@ -44,6 +46,7 @@ export interface Player {
   hasActed: boolean;    // 本轮是否已行动
   handRank?: HandRank;  // 牌型（摊牌时显示）
   winAmount?: number;   // 本局赢得的金额
+  isReady?: boolean;    // 是否已准备
 }
 
 // 游戏状态类型
@@ -58,6 +61,7 @@ export interface GameState {
   currentPlayer: number;    // 当前行动玩家
   smallBlind: number;       // 小盲注
   bigBlind: number;         // 大盲注
+  countdownTimer?: number;  // 倒计时（秒）
 }
 
 // 回调函数类型
@@ -190,6 +194,16 @@ class WebSocketService {
     // 发送结束游戏消息
     public endGame() {
         this.sendMessage('end_game', {});
+    }
+
+    // 准备
+    public ready() {
+        this.sendMessage('ready', {});
+    }
+
+    // 取消准备
+    public unready() {
+        this.sendMessage('unready', {});
     }
 }
 

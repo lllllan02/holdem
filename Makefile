@@ -1,6 +1,6 @@
 # 清理占用的端口
-.PHONY: clean-port
-clean-port:
+.PHONY: clean
+clean:
 	@echo "Cleaning port 8080..."
 	@lsof -ti:8080 | xargs kill -9 2>/dev/null || echo "Port 8080 is not in use"
 

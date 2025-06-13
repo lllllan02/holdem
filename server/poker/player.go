@@ -24,6 +24,7 @@ type Player struct {
 	HasActed   bool      `json:"hasActed"`   // 本轮是否已行动
 	HandRank   *HandRank `json:"handRank"`   // 牌型（摊牌时显示）
 	WinAmount  int       `json:"winAmount"`  // 本局赢得的金额
+	IsReady    bool      `json:"isReady"`    // 是否已准备
 }
 
 // NewPlayer 创建一个新的空座位玩家
@@ -39,6 +40,7 @@ func NewPlayer() Player {
 		HasActed:   false,
 		HandRank:   nil,
 		WinAmount:  0,
+		IsReady:    false,
 	}
 }
 
@@ -51,6 +53,7 @@ func NewSittingPlayer(userId, name string) Player {
 		Chips:     DefaultChips,
 		HandRank:  nil,
 		WinAmount: 0,
+		IsReady:   false,
 	}
 }
 
@@ -71,6 +74,7 @@ func (p *Player) Reset() {
 	p.HasActed = false
 	p.HandRank = nil
 	p.WinAmount = 0
+	p.IsReady = false
 }
 
 // SitDown 玩家落座
@@ -85,6 +89,7 @@ func (p *Player) SitDown(userId, name string) {
 	p.HasActed = false
 	p.HandRank = nil
 	p.WinAmount = 0
+	p.IsReady = false
 }
 
 // ResetForNewRound 为新一轮游戏重置玩家状态
@@ -98,6 +103,7 @@ func (p *Player) ResetForNewRound() {
 	p.HasActed = false
 	p.HandRank = nil
 	p.WinAmount = 0
+	p.IsReady = false
 }
 
 // Bet 玩家下注

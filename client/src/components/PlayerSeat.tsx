@@ -5,6 +5,7 @@ interface Player {
   chips: number;
   currentBet?: number;
   holeCards?: Card[];
+  isReady?: boolean;
 }
 
 export default function PlayerSeat({
@@ -47,7 +48,6 @@ export default function PlayerSeat({
         opacity: isEmpty && gameStatus === "playing" ? 0.5 : 1,
         boxShadow: isCurrentPlayer ? "0 0 15px #FFD700" : "none",
         border: isCurrentPlayer ? "3px solid #FFD700" : "2px solid #666",
-        animation: isCurrentPlayer ? "pulse 2s infinite" : "none",
       }}
       onClick={canSit ? onSit : undefined}
     >
@@ -70,9 +70,31 @@ export default function PlayerSeat({
             fontSize: "12px",
             fontWeight: "bold",
             border: "2px solid #FFA500",
+            zIndex: 3,
           }}
         >
           D
+        </div>
+      )}
+
+      {/* 准备状态标识 */}
+      {!isEmpty && gameStatus === "waiting" && player.isReady && (
+        <div
+          style={{
+            position: "absolute",
+            top: "-8px",
+            right: isDealer ? "-35px" : "-8px", // 如果有庄家标识，向左偏移
+            background: "#4CAF50",
+            color: "white",
+            borderRadius: "4px",
+            padding: "2px 6px",
+            fontSize: "10px",
+            fontWeight: "bold",
+            whiteSpace: "nowrap",
+            zIndex: 2,
+          }}
+        >
+          已准备
         </div>
       )}
 
@@ -126,7 +148,7 @@ export default function PlayerSeat({
           <div className="player-seat-chips">{player.chips}</div>
 
           {/* 当前下注显示 */}
-          {gameStatus === "playing" && (
+          {gameStatus === "playing" && player.currentBet && player.currentBet > 0 && (
             <div
               style={{
                 position: "absolute",
@@ -143,7 +165,7 @@ export default function PlayerSeat({
                 whiteSpace: "nowrap",
               }}
             >
-              下注: {player.currentBet || 0}
+              下注: {player.currentBet}
             </div>
           )}
         </>

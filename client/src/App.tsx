@@ -116,18 +116,6 @@ function App() {
     return null;
   };
 
-  // 开始游戏功能
-  const handleStartGame = () => {
-    wsService.startGame();
-  };
-
-  // 检查是否可以开始游戏
-  const canStartGame = () => {
-    if (!gameState) return false;
-    const sittingPlayersCount = gameState.players.filter(p => p.status !== "empty").length;
-    return gameState.gameStatus === "waiting" && sittingPlayersCount >= 2;
-  };
-
   // 检查是否轮到当前用户行动
   const isCurrentUserTurn = () => {
     if (!gameState || !user || gameState.currentPlayer < 0) return false;
@@ -220,12 +208,45 @@ function App() {
     return getCallAmount() === 0;
   };
 
+  // 获取当前用户的准备状态
+  const getCurrentUserReady = () => {
+    if (!gameState || !user) return false;
+    const userPlayer = gameState.players.find(player => player.userId === user.id);
+    return userPlayer?.isReady || false;
+  };
+
+  // 准备游戏
+  const handleReady = () => {
+    wsService.ready();
+  };
+
+  // 取消准备
+  const handleUnready = () => {
+    wsService.unready();
+  };
+
+  // 检查是否可以显示准备按钮
+  const canShowReadyButton = () => {
+    if (!gameState || !currentUserSeat) return false;
+    return gameState.gameStatus === "waiting";
+  };
+
+  // 获取准备状态文本
+  const getReadyStatusText = () => {
+    if (!gameState) return "";
+    const readyCount = gameState.players.filter(p => p.status !== "empty" && p.isReady).length;
+    const totalCount = gameState.players.filter(p => p.status !== "empty").length;
+    if (totalCount === 0) return "";
+    return `${readyCount}/${totalCount} 已准备`;
+  };
+
   useEffect(() => {
     fetchUser();
     
     // 注册WebSocket回调
     wsService.onGameState((newGameState: GameState) => {
       console.log("Received game state:", newGameState);
+      
       // 添加手牌调试信息
       if (newGameState.players) {
         newGameState.players.forEach((player, index) => {
@@ -330,29 +351,116 @@ function App() {
       />
       <UserInfoCompact user={user} onUpdateName={updateUserName} />
       
-      {/* 开始游戏按钮 */}
-      {canStartGame() && (
-        <button
-          onClick={handleStartGame}
+      {/* 倒计时显示 - 使用flexbox居中 */}
+      {canShowReadyButton() && gameState?.countdownTimer !== undefined && gameState.countdownTimer > 0 && (
+        <div
           style={{
             position: "fixed",
-            bottom: "35%",
-            left: "50%",
-            transform: "translate(-50%, 50%)",
-            padding: "12px 24px",
-            fontSize: "16px",
-            fontWeight: "bold",
-            backgroundColor: "#4CAF50",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            zIndex: 10,
-            boxShadow: "0 4px 8px rgba(0,0,0,0.3)",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none", // 不阻挡其他元素的点击
+            zIndex: 11,
           }}
         >
-          开始游戏
-        </button>
+          <div
+            style={{
+              marginTop: "-50px", // 稍微向上偏移
+              background: "rgba(255, 215, 0, 0.95)",
+              color: "#000",
+              padding: "8px 16px",
+              borderRadius: "20px",
+              fontSize: "18px",
+              fontWeight: "bold",
+              border: "2px solid #FFD700",
+              boxShadow: "0 4px 12px rgba(255, 215, 0, 0.5)",
+              animation: "pulse 1s infinite",
+              whiteSpace: "nowrap",
+              pointerEvents: "auto", // 恢复这个元素的点击事件
+            }}
+          >
+            游戏即将开始 {gameState.countdownTimer}
+          </div>
+        </div>
+      )}
+      
+      {/* 准备/取消准备按钮 */}
+      {canShowReadyButton() && (
+        <div
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, 80px)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "8px",
+            zIndex: 10,
+          }}
+        >
+          {/* 准备状态显示 */}
+          {getReadyStatusText() && (
+            <div
+              style={{
+                background: "rgba(0, 0, 0, 0.8)",
+                color: "white",
+                padding: "4px 12px",
+                borderRadius: "12px",
+                fontSize: "14px",
+                fontWeight: "500",
+                marginBottom: "8px",
+              }}
+            >
+              {getReadyStatusText()}
+            </div>
+          )}
+          
+          {/* 准备按钮 - 固定位置 */}
+          {!getCurrentUserReady() ? (
+            <button
+              onClick={handleReady}
+              style={{
+                padding: "12px 24px",
+                fontSize: "16px",
+                fontWeight: "bold",
+                backgroundColor: "#4CAF50",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                boxShadow: "0 4px 8px rgba(0,0,0,0.3)",
+                transition: "all 0.2s ease",
+                minWidth: "120px",
+              }}
+            >
+              准备
+            </button>
+          ) : (
+            <button
+              onClick={handleUnready}
+              style={{
+                padding: "12px 24px",
+                fontSize: "16px",
+                fontWeight: "bold",
+                backgroundColor: "#f44336",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                boxShadow: "0 4px 8px rgba(0,0,0,0.3)",
+                transition: "all 0.2s ease",
+                minWidth: "120px",
+              }}
+            >
+              取消准备
+            </button>
+          )}
+        </div>
       )}
       
       {/* 玩家行动按钮 */}
@@ -364,36 +472,26 @@ function App() {
             left: "50%",
             transform: "translate(-50%, 80px)",
             display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
             gap: "12px",
             zIndex: 10,
           }}
         >
-          <button
-            onClick={handleFold}
+          {/* 第一行按钮 */}
+          <div
             style={{
-              padding: "12px 20px",
-              fontSize: "14px",
-              fontWeight: "bold",
-              backgroundColor: "#dc3545",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-              minWidth: "80px",
+              display: "flex",
+              gap: "12px",
             }}
           >
-            弃牌
-          </button>
-          
-          {canCheck() ? (
             <button
-              onClick={handleCheck}
+              onClick={handleFold}
               style={{
                 padding: "12px 20px",
                 fontSize: "14px",
                 fontWeight: "bold",
-                backgroundColor: "#28a745",
+                backgroundColor: "#dc3545",
                 color: "white",
                 border: "none",
                 borderRadius: "8px",
@@ -402,28 +500,49 @@ function App() {
                 minWidth: "80px",
               }}
             >
-              过牌
+              弃牌
             </button>
-          ) : (
-            <button
-              onClick={handleCall}
-              style={{
-                padding: "12px 20px",
-                fontSize: "14px",
-                fontWeight: "bold",
-                backgroundColor: "#007bff",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                minWidth: "80px",
-              }}
-            >
-              跟注 {getCallAmount()}
-            </button>
-          )}
+            
+            {canCheck() ? (
+              <button
+                onClick={handleCheck}
+                style={{
+                  padding: "12px 20px",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  backgroundColor: "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                  minWidth: "80px",
+                }}
+              >
+                过牌
+              </button>
+            ) : (
+              <button
+                onClick={handleCall}
+                style={{
+                  padding: "12px 20px",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                  minWidth: "80px",
+                }}
+              >
+                跟注 {getCallAmount()}
+              </button>
+            )}
+          </div>
           
+          {/* 第二行按钮 */}
           <button
             onClick={handleRaise}
             style={{
@@ -436,7 +555,7 @@ function App() {
               borderRadius: "8px",
               cursor: "pointer",
               boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-              minWidth: "80px",
+              minWidth: "120px",
             }}
           >
             加注
@@ -949,6 +1068,8 @@ function App() {
           {gameState.currentBet > 0 && <div>当前下注: {gameState.currentBet}</div>}
           {gameState.dealerPos >= 0 && <div>庄家位置: 座位{gameState.dealerPos + 1}</div>}
           {gameState.currentPlayer >= 0 && <div>当前玩家: 座位{gameState.currentPlayer + 1}</div>}
+          {gameState.countdownTimer !== undefined && gameState.countdownTimer > 0 && <div>倒计时: {gameState.countdownTimer}秒</div>}
+          <div>{getReadyStatusText()}</div>
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@ package service
 
 import (
 	"log"
+	"time"
 
 	"github.com/lllllan02/holdem/poker"
 )
@@ -22,16 +23,21 @@ type Hub struct {
 
 	// 游戏实例
 	game *poker.Game
+
+	// 倒计时相关
+	countdownTicker *time.Ticker
+	countdownDone   chan bool
 }
 
 // NewHub 创建一个新的 Hub
 func NewHub() *Hub {
 	hub := &Hub{
-		clients:    make(map[string]*Client),
-		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		game:       poker.NewGame(),
+		clients:       make(map[string]*Client),
+		broadcast:     make(chan []byte),
+		register:      make(chan *Client),
+		unregister:    make(chan *Client),
+		game:          poker.NewGame(),
+		countdownDone: make(chan bool, 1),
 	}
 	log.Printf("[Hub] 创建新的 Hub 实例\n")
 	return hub
@@ -107,4 +113,83 @@ func (h *Hub) safeCloseClient(client *Client) {
 		close(client.send)
 		log.Printf("[Hub] 安全关闭客户端通道 - %s\n", client.user)
 	}()
+}
+
+// startCountdown 开始倒计时
+func (h *Hub) startCountdown() {
+	// 先停止之前的倒计时
+	if h.countdownTicker != nil {
+		h.countdownTicker.Stop()
+		h.countdownTicker = nil
+		log.Printf("[Hub] 停止之前的倒计时")
+	}
+
+	log.Printf("[Hub] 开始倒计时，初始值: 3")
+	h.game.CountdownTimer = 3
+	h.broadcastGameState()
+
+	// 创建新的 done 通道
+	h.countdownDone = make(chan bool, 1)
+
+	// 使用 ticker 而不是 timer 来确保每秒都触发
+	h.countdownTicker = time.NewTicker(time.Second)
+
+	go func() {
+		ticker := h.countdownTicker
+		done := h.countdownDone
+
+		defer func() {
+			if ticker != nil {
+				ticker.Stop()
+			}
+			log.Printf("[Hub] 倒计时协程结束")
+		}()
+
+		for {
+			select {
+			case <-ticker.C:
+				h.game.CountdownTimer--
+				log.Printf("[Hub] 倒计时更新: %d", h.game.CountdownTimer)
+				h.broadcastGameState()
+
+				if h.game.CountdownTimer <= 0 {
+					// 倒计时结束，开始游戏
+					log.Printf("[Hub] 倒计时结束，开始游戏")
+					h.game.CountdownTimer = -1 // 设置为-1表示倒计时已结束
+					if h.game.StartGame() {
+						log.Printf("[Hub] 游戏自动开始成功")
+					}
+					h.broadcastGameState()
+					return
+				}
+			case <-done:
+				log.Printf("[Hub] 倒计时被取消")
+				return
+			}
+		}
+	}()
+}
+
+// cancelCountdown 取消倒计时
+func (h *Hub) cancelCountdown() {
+	if h.countdownTicker != nil {
+		h.countdownTicker.Stop()
+		h.countdownTicker = nil
+		log.Printf("[Hub] 停止倒计时 ticker")
+	}
+
+	// 发送取消信号（非阻塞）
+	if h.countdownDone != nil {
+		select {
+		case h.countdownDone <- true:
+			log.Printf("[Hub] 发送倒计时取消信号")
+		default:
+			log.Printf("[Hub] 倒计时取消信号通道已满或已关闭")
+		}
+	}
+
+	if h.game.CountdownTimer > 0 {
+		h.game.CountdownTimer = -1 // 设置为-1表示倒计时已取消
+		log.Printf("[Hub] 倒计时已重置为-1")
+	}
 }

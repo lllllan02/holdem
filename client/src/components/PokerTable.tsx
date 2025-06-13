@@ -144,6 +144,24 @@ export default function PokerTable({
           <CommunityCards cards={communityCards} gameStatus={gameStatus} />
         </div>
         
+        {/* 覆盖层 - 隐藏可能的意外显示内容 */}
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "30%",
+            transform: "translate(-50%, -50%)",
+            width: "200px",
+            height: "100px",
+            background: "transparent",
+            zIndex: 5,
+            pointerEvents: "none",
+            overflow: "hidden",
+          }}
+        >
+          {/* 这个div用来覆盖任何意外的显示内容 */}
+        </div>
+        
         {/* 底池显示 */}
         {pot > 0 && (
           <div
@@ -206,6 +224,7 @@ export default function PokerTable({
               px = width / 2;
               py = height / 2;
           }
+          
           // 获取该座位的玩家信息
           const player = seatedPlayers[pos.seat];
           const isCurrentUserSeat = currentUserSeat === pos.seat;
@@ -221,7 +240,7 @@ export default function PokerTable({
           let isBigBlind = false;
           
           // 添加更多调试信息
-          if (seatIndex === 0) { // 只在第一个座位打印一次
+          if (seatIndex === 0) { // 只在第一个座位就打印
             console.log(`[调试] gameStatus: ${gameStatus}, dealerPos: ${dealerPos}`);
             console.log(`[调试] seatedPlayers:`, seatedPlayers);
           }

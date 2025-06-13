@@ -50,6 +50,11 @@ func (c *Client) sendGameState() {
 
 	gameStateCopy.Players = playersCopy
 
+	// 添加倒计时调试信息
+	if gameStateCopy.CountdownTimer > 0 {
+		log.Printf("[WS] 发送倒计时状态 - %s, 倒计时: %d", c.user, gameStateCopy.CountdownTimer)
+	}
+
 	gameStateMsg := WSMessage{
 		Type: MSG_GAME_STATE,
 		Data: GameStateData{
@@ -158,6 +163,10 @@ func (c *Client) handleClientMessage(message WSMessage) {
 		c.handleSitDown(message.Data)
 	case MSG_LEAVE_SEAT:
 		c.handleLeaveSeat(message.Data)
+	case MSG_READY:
+		c.handleReady()
+	case MSG_UNREADY:
+		c.handleUnready()
 	case MSG_START_GAME:
 		c.handleStartGame()
 	case MSG_FOLD:
@@ -488,4 +497,37 @@ func (c *Client) handleEndGame() {
 
 	// 广播游戏状态更新
 	c.hub.broadcastGameState()
+}
+
+// handleReady 处理玩家准备
+func (c *Client) handleReady() {
+	if c.hub.game.SetPlayerReady(c.user.ID, true) {
+		log.Printf("[WS] 玩家准备成功 - %s", c.user)
+
+		// 检查是否所有玩家都已准备
+		if c.hub.game.CheckAllPlayersReady() {
+			log.Printf("[WS] 所有玩家已准备，开始倒计时")
+			c.hub.startCountdown()
+		}
+
+		// 广播游戏状态更新
+		c.hub.broadcastGameState()
+	} else {
+		c.sendError("无法设置准备状态")
+	}
+}
+
+// handleUnready 处理玩家取消准备
+func (c *Client) handleUnready() {
+	if c.hub.game.SetPlayerReady(c.user.ID, false) {
+		log.Printf("[WS] 玩家取消准备成功 - %s", c.user)
+
+		// 取消倒计时（如果正在倒计时）
+		c.hub.cancelCountdown()
+
+		// 广播游戏状态更新
+		c.hub.broadcastGameState()
+	} else {
+		c.sendError("无法取消准备状态")
+	}
 }
