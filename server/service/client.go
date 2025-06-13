@@ -129,6 +129,8 @@ func (c *Client) handleClientMessage(message WSMessage) {
 		c.handleSitDown(message.Data)
 	case MSG_LEAVE_SEAT:
 		c.handleLeaveSeat(message.Data)
+	case MSG_START_GAME:
+		c.handleStartGame(message.Data)
 	default:
 		log.Printf("[WS] 未知消息类型 - %s, 类型: %s\n", c.user, message.Type)
 	}
@@ -136,6 +138,34 @@ func (c *Client) handleClientMessage(message WSMessage) {
 
 // handleSitDown 处理落座请求
 func (c *Client) handleSitDown(data interface{}) {
+	// 检查游戏状态，游戏进行中不允许新玩家落座
+	if c.hub.game.GameStatus == "playing" {
+		log.Printf("[WS] 游戏进行中不允许落座 - %s\n", c.user)
+
+		// 发送错误消息给客户端
+		errorMsg := WSMessage{
+			Type: MSG_ERROR,
+			Data: ErrorData{
+				Message: "游戏进行中不能落座",
+			},
+		}
+
+		messageBytes, err := json.Marshal(errorMsg)
+		if err != nil {
+			log.Printf("[WS] 序列化错误消息失败 - %s, 错误: %v\n", c.user, err)
+			return
+		}
+
+		select {
+		case c.send <- messageBytes:
+			log.Printf("[WS] 错误消息已发送 - %s\n", c.user)
+		default:
+			log.Printf("[WS] 发送错误消息失败，通道已满 - %s\n", c.user)
+		}
+		return
+	}
+
+	// 解析座位ID
 	dataMap, ok := data.(map[string]interface{})
 	if !ok {
 		log.Printf("[WS] 落座数据格式错误 - %s\n", c.user)
@@ -180,36 +210,111 @@ func (c *Client) handleSitDown(data interface{}) {
 
 // handleLeaveSeat 处理离开座位请求
 func (c *Client) handleLeaveSeat(data interface{}) {
+	// 检查游戏状态，游戏进行中不允许离座
+	if c.hub.game.GameStatus == "playing" {
+		log.Printf("[WS] 游戏进行中不允许离座 - %s\n", c.user)
+
+		// 发送错误消息给客户端
+		errorMsg := WSMessage{
+			Type: MSG_ERROR,
+			Data: ErrorData{
+				Message: "游戏进行中不能离座",
+			},
+		}
+
+		messageBytes, err := json.Marshal(errorMsg)
+		if err != nil {
+			log.Printf("[WS] 序列化错误消息失败 - %s, 错误: %v\n", c.user, err)
+			return
+		}
+
+		select {
+		case c.send <- messageBytes:
+			log.Printf("[WS] 错误消息已发送 - %s\n", c.user)
+		default:
+			log.Printf("[WS] 发送错误消息失败，通道已满 - %s\n", c.user)
+		}
+		return
+	}
+
+	// 解析座位ID
 	dataMap, ok := data.(map[string]interface{})
 	if !ok {
 		log.Printf("[WS] 离开座位数据格式错误 - %s\n", c.user)
 		return
 	}
 
-	seatId, ok := dataMap["seatId"].(float64)
+	seatIdFloat, ok := dataMap["seatId"].(float64)
 	if !ok {
 		log.Printf("[WS] 座位ID格式错误 - %s\n", c.user)
 		return
 	}
 
-	seatIndex := int(seatId) - 1 // 转换为数组索引
-	if seatIndex < 0 || seatIndex >= len(c.hub.game.Players) {
-		log.Printf("[WS] 座位ID超出范围 - %s, 座位: %d\n", c.user, int(seatId))
+	seatId := int(seatIdFloat)
+	log.Printf("[WS] 处理离开座位请求 - %s, 座位: %d\n", c.user, seatId)
+
+	// 检查座位索引是否有效
+	if seatId < 1 || seatId > len(c.hub.game.Players) {
+		log.Printf("[WS] 无效的座位ID - %s, 座位: %d\n", c.user, seatId)
 		return
 	}
 
-	// 检查是否是用户自己的座位
-	currentPlayer := &c.hub.game.Players[seatIndex]
-	if currentPlayer.UserId != c.user.ID {
-		log.Printf("[WS] 不能离开他人座位 - %s, 座位: %d, 占用者: %s\n", c.user, int(seatId), currentPlayer.Name)
+	// 转换为数组索引（座位1对应索引0）
+	seatIndex := seatId - 1
+	player := &c.hub.game.Players[seatIndex]
+
+	// 检查该座位是否是当前用户占用的
+	if player.IsEmpty() || player.UserId != c.user.ID {
+		log.Printf("[WS] 座位不是当前用户占用 - %s, 座位: %d, 座位用户: %s\n", c.user, seatId, player.UserId)
 		return
 	}
 
-	// 重置座位为空状态 - 使用Reset方法
-	currentPlayer.Reset()
-
-	log.Printf("[WS] 用户离开座位成功 - %s, 座位: %d\n", c.user, int(seatId))
+	// 重置座位
+	player.Reset()
+	log.Printf("[WS] 玩家离开座位成功 - %s, 座位: %d\n", c.user, seatId)
 
 	// 广播游戏状态更新
 	c.hub.broadcastGameState()
+}
+
+// handleStartGame 处理开始游戏请求
+func (c *Client) handleStartGame(data interface{}) {
+	// 检查游戏是否可以开始
+	if !c.hub.game.CanStartGame() {
+		log.Printf("[WS] 游戏无法开始 - %s, 当前状态: %s, 玩家数: %d\n",
+			c.user, c.hub.game.GameStatus, c.hub.game.GetSittingPlayersCount())
+
+		// 发送错误消息给客户端
+		errorMsg := WSMessage{
+			Type: MSG_ERROR,
+			Data: ErrorData{
+				Message: "游戏无法开始，需要至少2个玩家",
+			},
+		}
+
+		messageBytes, err := json.Marshal(errorMsg)
+		if err != nil {
+			log.Printf("[WS] 序列化错误消息失败 - %s, 错误: %v\n", c.user, err)
+			return
+		}
+
+		select {
+		case c.send <- messageBytes:
+			log.Printf("[WS] 错误消息已发送 - %s\n", c.user)
+		default:
+			log.Printf("[WS] 发送错误消息失败，通道已满 - %s\n", c.user)
+		}
+		return
+	}
+
+	// 开始游戏
+	if c.hub.game.StartGame() {
+		log.Printf("[WS] 游戏开始成功 - %s, 玩家数: %d\n",
+			c.user, c.hub.game.GetSittingPlayersCount())
+
+		// 广播游戏状态更新
+		c.hub.broadcastGameState()
+	} else {
+		log.Printf("[WS] 游戏开始失败 - %s\n", c.user)
+	}
 }

@@ -15,6 +15,7 @@ const (
 	// 客户端发送给服务器的消息类型
 	MSG_SIT_DOWN   MessageType = "sit_down"
 	MSG_LEAVE_SEAT MessageType = "leave_seat"
+	MSG_START_GAME MessageType = "start_game"
 	MSG_FOLD       MessageType = "fold"
 	MSG_CALL       MessageType = "call"
 	MSG_RAISE      MessageType = "raise"

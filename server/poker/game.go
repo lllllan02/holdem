@@ -3,6 +3,7 @@ package poker
 // 游戏状态常量
 const (
 	GameStatusWaiting = "waiting" // 等待玩家
+	GameStatusPlaying = "playing" // 游戏进行中
 )
 
 // 游戏轮次常量
@@ -19,6 +20,7 @@ const (
 	DefaultSmallBlind = 10
 	DefaultBigBlind   = 20
 	MaxSeats          = 7
+	MinPlayers        = 2 // 最少需要2个玩家才能开始游戏
 )
 
 type Game struct {
@@ -37,4 +39,37 @@ func NewGame() *Game {
 		Players:    players,
 		GameStatus: GameStatusWaiting,
 	}
+}
+
+// GetSittingPlayersCount 获取已落座的玩家数量
+func (g *Game) GetSittingPlayersCount() int {
+	count := 0
+	for _, player := range g.Players {
+		if !player.IsEmpty() {
+			count++
+		}
+	}
+	return count
+}
+
+// CanStartGame 检查是否可以开始游戏
+func (g *Game) CanStartGame() bool {
+	return g.GameStatus == GameStatusWaiting && g.GetSittingPlayersCount() >= MinPlayers
+}
+
+// StartGame 开始游戏
+func (g *Game) StartGame() bool {
+	if !g.CanStartGame() {
+		return false
+	}
+
+	g.GameStatus = GameStatusPlaying
+	// TODO: 这里后续可以添加发牌、设置盲注等逻辑
+	return true
+}
+
+// EndGame 结束游戏
+func (g *Game) EndGame() {
+	g.GameStatus = GameStatusWaiting
+	// TODO: 这里后续可以添加结算、重置等逻辑
 }

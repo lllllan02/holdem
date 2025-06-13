@@ -93,6 +93,18 @@ function App() {
     return null;
   };
 
+  // 开始游戏功能
+  const handleStartGame = () => {
+    wsService.startGame();
+  };
+
+  // 检查是否可以开始游戏
+  const canStartGame = () => {
+    if (!gameState) return false;
+    const sittingPlayersCount = gameState.players.filter(p => p.status !== "empty").length;
+    return gameState.gameStatus === "waiting" && sittingPlayersCount >= 2;
+  };
+
   useEffect(() => {
     fetchUser();
     
@@ -104,6 +116,7 @@ function App() {
 
     wsService.onError((error: string) => {
       console.error("WebSocket error:", error);
+      alert(error); // 显示错误消息
     });
   }, []);
 
@@ -123,10 +136,36 @@ function App() {
       <PokerTable
         seatedPlayers={seatedPlayers}
         currentUserSeat={currentUserSeat}
+        gameStatus={gameState?.gameStatus || "waiting"}
         onSit={handleSit}
         onLeave={handleLeave}
       />
       <UserInfoCompact user={user} onUpdateName={updateUserName} />
+      
+      {/* 开始游戏按钮 */}
+      {canStartGame() && (
+        <button
+          onClick={handleStartGame}
+          style={{
+            position: "fixed",
+            bottom: "50%",
+            left: "50%",
+            transform: "translate(-50%, 50%)",
+            padding: "12px 24px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            backgroundColor: "#4CAF50",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            zIndex: 10,
+            boxShadow: "0 4px 8px rgba(0,0,0,0.3)",
+          }}
+        >
+          开始游戏
+        </button>
+      )}
       
       {/* 调试信息 */}
       {gameState && (

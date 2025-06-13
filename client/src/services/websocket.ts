@@ -6,6 +6,7 @@ export type MessageType =
   | 'error'
   | 'sit_down'
   | 'leave_seat'
+  | 'start_game'
   | 'fold'
   | 'call'
   | 'raise'
@@ -129,6 +130,11 @@ class WebSocketService {
     // 发送离开座位消息
     public leaveSeat(seatId: number) {
         this.sendMessage('leave_seat', { seatId });
+    }
+
+    // 发送开始游戏消息
+    public startGame() {
+        this.sendMessage('start_game', {});
     }
 }
 

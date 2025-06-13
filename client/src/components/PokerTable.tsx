@@ -24,11 +24,13 @@ interface Player {
 export default function PokerTable({
   seatedPlayers = {},
   currentUserSeat,
+  gameStatus = "waiting",
   onSit,
   onLeave,
 }: {
   seatedPlayers?: { [seat: string]: Player };
   currentUserSeat?: string | null;
+  gameStatus?: string;
   onSit?: (seat: string) => void;
   onLeave?: (seat: string) => void;
 }) {
@@ -168,6 +170,7 @@ export default function PokerTable({
               <PlayerSeat
                 player={player}
                 seat={pos.seat}
+                gameStatus={gameStatus}
                 onSit={() => onSit?.(pos.seat)}
                 style={{
                   position: "absolute",
@@ -179,7 +182,7 @@ export default function PokerTable({
               />
 
               {/* 如果是当前用户的座位，显示离开按钮 */}
-              {isCurrentUserSeat && (
+              {isCurrentUserSeat && gameStatus === "waiting" && (
                 <button
                   onClick={() => onLeave?.(pos.seat)}
                   style={{
