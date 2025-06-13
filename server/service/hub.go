@@ -107,14 +107,14 @@ func (h *Hub) safeCloseClient(client *Client) {
 		}
 	}()
 
-	// 检查通道是否已经关闭
-	select {
-	case <-client.send:
-		// 通道已经关闭
-		log.Printf("[Hub] 客户端通道已关闭 - %s\n", client.user)
-	default:
-		// 通道还开着，安全关闭
+	// 尝试关闭通道，如果已经关闭会panic，我们捕获它
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Hub] 客户端通道已经关闭 - %s\n", client.user)
+			}
+		}()
 		close(client.send)
 		log.Printf("[Hub] 安全关闭客户端通道 - %s\n", client.user)
-	}
+	}()
 }

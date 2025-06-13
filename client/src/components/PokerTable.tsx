@@ -1,6 +1,7 @@
 import React from "react";
 import CommunityCards from "./CommunityCards";
 import PlayerSeat from "./PlayerSeat";
+import type { Card } from "../services/websocket";
 
 const SEAT_POSITIONS = [
   // 7个座位，从左下开始顺时针排列
@@ -19,18 +20,31 @@ const SEAT_POSITIONS = [
 interface Player {
   name: string;
   chips: number;
+  currentBet?: number;
 }
 
 export default function PokerTable({
   seatedPlayers = {},
   currentUserSeat,
   gameStatus = "waiting",
+  communityCards = [],
+  pot = 0,
+  dealerPos = -1,
+  currentPlayer = -1,
+  smallBlind = 10,
+  bigBlind = 20,
   onSit,
   onLeave,
 }: {
   seatedPlayers?: { [seat: string]: Player };
   currentUserSeat?: string | null;
   gameStatus?: string;
+  communityCards?: Card[];
+  pot?: number;
+  dealerPos?: number;
+  currentPlayer?: number;
+  smallBlind?: number;
+  bigBlind?: number;
   onSit?: (seat: string) => void;
   onLeave?: (seat: string) => void;
 }) {
@@ -114,8 +128,30 @@ export default function PokerTable({
             gap: "16px",
           }}
         >
-          <CommunityCards />
+          <CommunityCards cards={communityCards} />
         </div>
+        
+        {/* 底池显示 */}
+        {pot > 0 && (
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "60%",
+              transform: "translate(-50%, -50%)",
+              background: "rgba(255, 215, 0, 0.9)",
+              color: "#000",
+              padding: "8px 16px",
+              borderRadius: "20px",
+              fontSize: "16px",
+              fontWeight: "bold",
+              border: "2px solid #FFD700",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            }}
+          >
+            底池: {pot}
+          </div>
+        )}
         {/* 玩家座位放到桌沿外圈，手牌放到桌面内圈 */}
         {SEAT_POSITIONS.map((pos, i) => {
           const cx = width / 2,
@@ -163,6 +199,17 @@ export default function PokerTable({
           // 获取该座位的玩家信息
           const player = seatedPlayers[pos.seat];
           const isCurrentUserSeat = currentUserSeat === pos.seat;
+          
+          // 计算座位索引（座位1对应索引0）
+          const seatIndex = parseInt(pos.seat.replace("座位", "")) - 1;
+          
+          // 判断各种状态
+          const isDealer = dealerPos === seatIndex;
+          const isSmallBlind = gameStatus === "playing" && dealerPos >= 0 && 
+            ((dealerPos + 1) % 7) === seatIndex;
+          const isBigBlind = gameStatus === "playing" && dealerPos >= 0 && 
+            ((dealerPos + 2) % 7) === seatIndex;
+          const isCurrentPlayerTurn = currentPlayer === seatIndex;
 
           return (
             <React.Fragment key={i}>
@@ -171,6 +218,10 @@ export default function PokerTable({
                 player={player}
                 seat={pos.seat}
                 gameStatus={gameStatus}
+                isDealer={isDealer}
+                isSmallBlind={isSmallBlind}
+                isBigBlind={isBigBlind}
+                isCurrentPlayer={isCurrentPlayerTurn}
                 onSit={() => onSit?.(pos.seat)}
                 style={{
                   position: "absolute",

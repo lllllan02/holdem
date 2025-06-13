@@ -35,10 +35,8 @@ type GameStateData struct {
 
 // 玩家行动消息数据
 type PlayerActionData struct {
-	UserId string `json:"userId"`
 	Action string `json:"action"`
-	Amount int    `json:"amount,omitempty"`
-	SeatId int    `json:"seatId,omitempty"`
+	Amount int    `json:"amount"`
 }
 
 // 错误消息数据

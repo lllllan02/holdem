@@ -1,33 +1,40 @@
 package poker
 
+// 玩家状态常量
+const (
+	PlayerStatusEmpty   = "empty"   // 空座位
+	PlayerStatusSitting = "sitting" // 已落座
+	PlayerStatusFolded  = "folded"  // 已弃牌
+	PlayerStatusAllIn   = "allin"   // 全下
+)
+
 // 默认配置常量
 const (
 	DefaultChips = 1000
 )
 
-// 玩家状态常量
-const (
-	PlayerStatusEmpty   = "empty"   // 空座位
-	PlayerStatusSitting = "sitting" // 已落座
-	PlayerStatusPlaying = "playing" // 游戏中
-	PlayerStatusFolded  = "folded"  // 已弃牌
-	PlayerStatusAllIn   = "allin"   // 全下
-)
-
 type Player struct {
-	UserId string `json:"userId"`
-	Name   string `json:"name"`
-	Status string `json:"status"` // 使用上面定义的常量
-	Chips  int    `json:"chips"`
+	UserId     string `json:"userId"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Chips      int    `json:"chips"`
+	HoleCards  []Card `json:"holeCards"`  // 底牌（只发给玩家自己）
+	CurrentBet int    `json:"currentBet"` // 当前轮下注额
+	TotalBet   int    `json:"totalBet"`   // 本局总下注额
+	HasActed   bool   `json:"hasActed"`   // 本轮是否已行动
 }
 
 // NewPlayer 创建一个新的空座位玩家
 func NewPlayer() Player {
 	return Player{
-		UserId: "",
-		Name:   "",
-		Status: PlayerStatusEmpty,
-		Chips:  0,
+		UserId:     "",
+		Name:       "",
+		Status:     PlayerStatusEmpty,
+		Chips:      0,
+		HoleCards:  make([]Card, 0, 2),
+		CurrentBet: 0,
+		TotalBet:   0,
+		HasActed:   false,
 	}
 }
 
@@ -43,15 +50,19 @@ func NewSittingPlayer(userId, name string) Player {
 
 // IsEmpty 检查座位是否为空
 func (p *Player) IsEmpty() bool {
-	return p.Status == PlayerStatusEmpty || p.UserId == ""
+	return p.Status == PlayerStatusEmpty
 }
 
-// Reset 重置座位为空状态
+// Reset 重置玩家为空座位状态
 func (p *Player) Reset() {
 	p.UserId = ""
 	p.Name = ""
 	p.Status = PlayerStatusEmpty
 	p.Chips = 0
+	p.HoleCards = make([]Card, 0, 2)
+	p.CurrentBet = 0
+	p.TotalBet = 0
+	p.HasActed = false
 }
 
 // SitDown 玩家落座
@@ -60,4 +71,46 @@ func (p *Player) SitDown(userId, name string) {
 	p.Name = name
 	p.Status = PlayerStatusSitting
 	p.Chips = DefaultChips
+	p.HoleCards = make([]Card, 0, 2)
+	p.CurrentBet = 0
+	p.TotalBet = 0
+	p.HasActed = false
+}
+
+// ResetForNewRound 为新一轮游戏重置玩家状态
+func (p *Player) ResetForNewRound() {
+	if p.Status == PlayerStatusSitting || p.Status == PlayerStatusFolded || p.Status == PlayerStatusAllIn {
+		p.Status = PlayerStatusSitting
+	}
+	p.HoleCards = make([]Card, 0, 2)
+	p.CurrentBet = 0
+	p.TotalBet = 0
+	p.HasActed = false
+}
+
+// Bet 玩家下注
+func (p *Player) Bet(amount int) bool {
+	if amount > p.Chips {
+		// 全下
+		amount = p.Chips
+		p.Status = PlayerStatusAllIn
+	}
+
+	p.Chips -= amount
+	p.CurrentBet += amount
+	p.TotalBet += amount
+	p.HasActed = true
+
+	return true
+}
+
+// Fold 玩家弃牌
+func (p *Player) Fold() {
+	p.Status = PlayerStatusFolded
+	p.HasActed = true
+}
+
+// CanAct 检查玩家是否可以行动
+func (p *Player) CanAct() bool {
+	return p.Status == PlayerStatusSitting && !p.HasActed
 }

@@ -52,16 +52,21 @@ func WebSocketHandler(c *gin.Context) {
 	// 注册客户端到 hub
 	client.hub.register <- client
 
-	// 发送当前游戏状态给新连接的客户端
-	go func() {
-		// 等待一小段时间确保客户端注册完成
-		time.Sleep(100 * time.Millisecond)
-		client.sendGameState()
-	}()
-
 	// 启动读写协程
 	go client.writePump()
 	go client.readPump()
+
+	// 发送当前游戏状态给新连接的客户端
+	// 放在最后，确保客户端已经完全初始化
+	go func() {
+		// 等待一小段时间确保客户端完全准备好
+		time.Sleep(200 * time.Millisecond)
+
+		// 检查客户端是否仍然在hub中（避免竞态条件）
+		if _, exists := globalHub.clients[user.ID]; exists {
+			client.sendGameState()
+		}
+	}()
 
 	log.Printf("[WS] 连接建立成功 - %s, 当前在线人数: %d\n", user, len(globalHub.clients))
 }

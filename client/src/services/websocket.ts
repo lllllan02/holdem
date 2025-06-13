@@ -18,18 +18,37 @@ export interface WSMessage {
   data: any;
 }
 
-// 游戏状态数据
-export interface GameState {
-  players: Player[];
-  gameStatus: string;
+// 扑克牌类型
+export interface Card {
+  suit: string;  // 花色: hearts, diamonds, clubs, spades
+  rank: string;  // 点数: 2-10, J, Q, K, A
+  value: number; // 数值: 2-14 (A=14)
 }
 
-// 玩家数据
+// 玩家类型
 export interface Player {
   userId: string;
   name: string;
   status: string;
   chips: number;
+  holeCards: Card[];    // 底牌
+  currentBet: number;   // 当前轮下注额
+  totalBet: number;     // 本局总下注额
+  hasActed: boolean;    // 本轮是否已行动
+}
+
+// 游戏状态类型
+export interface GameState {
+  players: Player[];
+  gameStatus: string;
+  gamePhase: string;        // 当前游戏阶段
+  communityCards: Card[];   // 公共牌
+  pot: number;              // 底池
+  currentBet: number;       // 当前下注额
+  dealerPos: number;        // 庄家位置
+  currentPlayer: number;    // 当前行动玩家
+  smallBlind: number;       // 小盲注
+  bigBlind: number;         // 大盲注
 }
 
 // 回调函数类型
@@ -135,6 +154,26 @@ class WebSocketService {
     // 发送开始游戏消息
     public startGame() {
         this.sendMessage('start_game', {});
+    }
+
+    // 发送弃牌消息
+    public fold() {
+        this.sendMessage('fold', {});
+    }
+
+    // 发送跟注消息
+    public call() {
+        this.sendMessage('call', {});
+    }
+
+    // 发送过牌消息
+    public check() {
+        this.sendMessage('check', {});
+    }
+
+    // 发送加注消息
+    public raise(amount: number) {
+        this.sendMessage('raise', { amount });
     }
 }
 

@@ -1,18 +1,23 @@
 package poker
 
+import (
+	"math/rand"
+	"time"
+)
+
 // 游戏状态常量
 const (
 	GameStatusWaiting = "waiting" // 等待玩家
 	GameStatusPlaying = "playing" // 游戏进行中
 )
 
-// 游戏轮次常量
+// 游戏阶段常量
 const (
-	RoundPreflop  = "preflop"  // 翻牌前
-	RoundFlop     = "flop"     // 翻牌
-	RoundTurn     = "turn"     // 转牌
-	RoundRiver    = "river"    // 河牌
-	RoundShowdown = "showdown" // 摊牌
+	GamePhasePreFlop  = "preflop"  // 翻牌前
+	GamePhaseFlop     = "flop"     // 翻牌
+	GamePhaseTurn     = "turn"     // 转牌
+	GamePhaseRiver    = "river"    // 河牌
+	GamePhaseShowdown = "showdown" // 摊牌
 )
 
 // 默认配置常量
@@ -24,8 +29,24 @@ const (
 )
 
 type Game struct {
-	Players    []Player `json:"players"`
-	GameStatus string   `json:"gameStatus"` // 使用GameStatus常量
+	Players        []Player `json:"players"`
+	GameStatus     string   `json:"gameStatus"`     // 使用GameStatus常量
+	GamePhase      string   `json:"gamePhase"`      // 当前游戏阶段
+	CommunityCards []Card   `json:"communityCards"` // 公共牌
+	Pot            int      `json:"pot"`            // 底池
+	CurrentBet     int      `json:"currentBet"`     // 当前下注额
+	DealerPos      int      `json:"dealerPos"`      // 庄家位置
+	CurrentPlayer  int      `json:"currentPlayer"`  // 当前行动玩家
+	SmallBlind     int      `json:"smallBlind"`     // 小盲注
+	BigBlind       int      `json:"bigBlind"`       // 大盲注
+	Deck           []Card   `json:"-"`              // 牌堆（不发送给客户端）
+}
+
+// Card 扑克牌结构
+type Card struct {
+	Suit  string `json:"suit"`  // 花色: hearts, diamonds, clubs, spades
+	Rank  string `json:"rank"`  // 点数: 2-10, J, Q, K, A
+	Value int    `json:"value"` // 数值: 2-14 (A=14)
 }
 
 func NewGame() *Game {
@@ -36,8 +57,17 @@ func NewGame() *Game {
 	}
 
 	return &Game{
-		Players:    players,
-		GameStatus: GameStatusWaiting,
+		Players:        players,
+		GameStatus:     GameStatusWaiting,
+		GamePhase:      "",
+		CommunityCards: make([]Card, 0, 5),
+		Pot:            0,
+		CurrentBet:     0,
+		DealerPos:      0,
+		CurrentPlayer:  -1,
+		SmallBlind:     DefaultSmallBlind,
+		BigBlind:       DefaultBigBlind,
+		Deck:           make([]Card, 0, 52),
 	}
 }
 
@@ -64,12 +94,360 @@ func (g *Game) StartGame() bool {
 	}
 
 	g.GameStatus = GameStatusPlaying
-	// TODO: 这里后续可以添加发牌、设置盲注等逻辑
+	g.GamePhase = GamePhasePreFlop
+
+	// 初始化新一轮游戏
+	g.initializeRound()
+
 	return true
 }
 
 // EndGame 结束游戏
 func (g *Game) EndGame() {
 	g.GameStatus = GameStatusWaiting
-	// TODO: 这里后续可以添加结算、重置等逻辑
+	g.GamePhase = ""
+	g.resetRound()
+}
+
+// initializeRound 初始化新一轮游戏
+func (g *Game) initializeRound() {
+	// 重置底池和下注
+	g.Pot = 0
+	g.CurrentBet = 0
+
+	// 清空公共牌
+	g.CommunityCards = make([]Card, 0, 5)
+
+	// 创建并洗牌
+	g.createDeck()
+	g.shuffleDeck()
+
+	// 重置所有玩家状态
+	for i := range g.Players {
+		if !g.Players[i].IsEmpty() {
+			g.Players[i].ResetForNewRound()
+		}
+	}
+
+	// 设置庄家位置（第一局随机，后续轮转）
+	if g.DealerPos == 0 {
+		g.DealerPos = g.findRandomActivePlayer()
+	} else {
+		g.DealerPos = g.getNextActivePlayer(g.DealerPos)
+	}
+
+	// 发底牌
+	g.dealHoleCards()
+
+	// 下盲注
+	g.postBlinds()
+
+	// 设置第一个行动玩家（大盲注后的第一个玩家）
+	bigBlindPos := g.getNextActivePlayer(g.getNextActivePlayer(g.DealerPos))
+	g.CurrentPlayer = g.getNextActivePlayer(bigBlindPos)
+}
+
+// resetRound 重置游戏轮次
+func (g *Game) resetRound() {
+	g.Pot = 0
+	g.CurrentBet = 0
+	g.CommunityCards = make([]Card, 0, 5)
+	g.DealerPos = 0
+	g.CurrentPlayer = -1
+	g.Deck = make([]Card, 0, 52)
+}
+
+// createDeck 创建标准52张牌
+func (g *Game) createDeck() {
+	suits := []string{"hearts", "diamonds", "clubs", "spades"}
+	ranks := []string{"2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"}
+	values := []int{2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+
+	g.Deck = make([]Card, 0, 52)
+	for _, suit := range suits {
+		for i, rank := range ranks {
+			g.Deck = append(g.Deck, Card{
+				Suit:  suit,
+				Rank:  rank,
+				Value: values[i],
+			})
+		}
+	}
+}
+
+// shuffleDeck 洗牌
+func (g *Game) shuffleDeck() {
+	rand.Seed(time.Now().UnixNano())
+	for i := len(g.Deck) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		g.Deck[i], g.Deck[j] = g.Deck[j], g.Deck[i]
+	}
+}
+
+// dealCard 发一张牌
+func (g *Game) dealCard() Card {
+	if len(g.Deck) == 0 {
+		return Card{} // 空牌，理论上不应该发生
+	}
+	card := g.Deck[0]
+	g.Deck = g.Deck[1:]
+	return card
+}
+
+// dealHoleCards 给每个玩家发底牌
+func (g *Game) dealHoleCards() {
+	// 每个玩家发2张底牌
+	for round := 0; round < 2; round++ {
+		for i := range g.Players {
+			if !g.Players[i].IsEmpty() && g.Players[i].Status == PlayerStatusSitting {
+				card := g.dealCard()
+				g.Players[i].HoleCards = append(g.Players[i].HoleCards, card)
+			}
+		}
+	}
+}
+
+// postBlinds 下盲注
+func (g *Game) postBlinds() {
+	smallBlindPos := g.getNextActivePlayer(g.DealerPos)
+	bigBlindPos := g.getNextActivePlayer(smallBlindPos)
+
+	// 小盲注
+	if smallBlindPos != -1 {
+		g.Players[smallBlindPos].Bet(g.SmallBlind)
+		g.Pot += g.SmallBlind
+	}
+
+	// 大盲注
+	if bigBlindPos != -1 {
+		g.Players[bigBlindPos].Bet(g.BigBlind)
+		g.Pot += g.BigBlind
+		g.CurrentBet = g.BigBlind
+	}
+}
+
+// findRandomActivePlayer 找到一个随机的活跃玩家位置
+func (g *Game) findRandomActivePlayer() int {
+	activePositions := make([]int, 0)
+	for i, player := range g.Players {
+		if !player.IsEmpty() && player.Status == PlayerStatusSitting {
+			activePositions = append(activePositions, i)
+		}
+	}
+
+	if len(activePositions) == 0 {
+		return -1
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	return activePositions[rand.Intn(len(activePositions))]
+}
+
+// getNextActivePlayer 获取下一个活跃玩家位置
+func (g *Game) getNextActivePlayer(currentPos int) int {
+	if currentPos == -1 {
+		return -1
+	}
+
+	for i := 1; i < len(g.Players); i++ {
+		nextPos := (currentPos + i) % len(g.Players)
+		if !g.Players[nextPos].IsEmpty() && g.Players[nextPos].Status == PlayerStatusSitting {
+			return nextPos
+		}
+	}
+
+	return -1
+}
+
+// PlayerAction 处理玩家行动
+func (g *Game) PlayerAction(userId string, action string, amount int) bool {
+	// 检查游戏状态
+	if g.GameStatus != GameStatusPlaying {
+		return false
+	}
+
+	// 找到玩家位置
+	playerPos := -1
+	for i, player := range g.Players {
+		if player.UserId == userId && !player.IsEmpty() {
+			playerPos = i
+			break
+		}
+	}
+
+	if playerPos == -1 {
+		return false
+	}
+
+	// 检查是否轮到该玩家行动
+	if g.CurrentPlayer != playerPos {
+		return false
+	}
+
+	player := &g.Players[playerPos]
+
+	// 检查玩家是否可以行动
+	if !player.CanAct() {
+		return false
+	}
+
+	// 处理不同的行动
+	switch action {
+	case "fold":
+		player.Fold()
+	case "call":
+		callAmount := g.CurrentBet - player.CurrentBet
+		if callAmount > 0 {
+			player.Bet(callAmount)
+			g.Pot += callAmount
+		}
+		player.HasActed = true
+	case "check":
+		// 只有在没有下注时才能过牌
+		if g.CurrentBet == player.CurrentBet {
+			player.HasActed = true
+		} else {
+			return false
+		}
+	case "raise":
+		// 加注必须至少是当前下注的两倍
+		if amount < g.CurrentBet*2 {
+			return false
+		}
+		raiseAmount := amount - player.CurrentBet
+		player.Bet(raiseAmount)
+		g.Pot += raiseAmount
+		g.CurrentBet = amount
+
+		// 重置其他玩家的行动状态（除了已弃牌的）
+		for i := range g.Players {
+			if i != playerPos && !g.Players[i].IsEmpty() && g.Players[i].Status != PlayerStatusFolded {
+				g.Players[i].HasActed = false
+			}
+		}
+	default:
+		return false
+	}
+
+	// 移动到下一个玩家
+	g.moveToNextPlayer()
+
+	// 检查是否需要进入下一阶段
+	if g.isRoundComplete() {
+		g.nextPhase()
+	}
+
+	return true
+}
+
+// moveToNextPlayer 移动到下一个可以行动的玩家
+func (g *Game) moveToNextPlayer() {
+	startPos := g.CurrentPlayer
+	for {
+		g.CurrentPlayer = g.getNextActivePlayer(g.CurrentPlayer)
+
+		// 如果回到起始位置或没有找到下一个玩家，说明轮次结束
+		if g.CurrentPlayer == startPos || g.CurrentPlayer == -1 {
+			g.CurrentPlayer = -1
+			break
+		}
+
+		player := &g.Players[g.CurrentPlayer]
+		if player.CanAct() && player.Status == PlayerStatusSitting {
+			break
+		}
+	}
+}
+
+// isRoundComplete 检查当前轮次是否完成
+func (g *Game) isRoundComplete() bool {
+	activePlayers := 0
+	actedPlayers := 0
+
+	for _, player := range g.Players {
+		if !player.IsEmpty() && player.Status != PlayerStatusFolded {
+			activePlayers++
+			if player.HasActed || player.Status == PlayerStatusAllIn {
+				actedPlayers++
+			}
+		}
+	}
+
+	// 所有活跃玩家都已行动，或者只剩一个玩家
+	return actedPlayers == activePlayers || activePlayers <= 1
+}
+
+// nextPhase 进入下一个游戏阶段
+func (g *Game) nextPhase() {
+	// 重置所有玩家的行动状态和当前下注
+	for i := range g.Players {
+		if !g.Players[i].IsEmpty() && g.Players[i].Status != PlayerStatusFolded {
+			g.Players[i].HasActed = false
+			g.Players[i].CurrentBet = 0
+		}
+	}
+
+	g.CurrentBet = 0
+
+	switch g.GamePhase {
+	case GamePhasePreFlop:
+		g.GamePhase = GamePhaseFlop
+		g.dealFlop()
+	case GamePhaseFlop:
+		g.GamePhase = GamePhaseTurn
+		g.dealTurn()
+	case GamePhaseTurn:
+		g.GamePhase = GamePhaseRiver
+		g.dealRiver()
+	case GamePhaseRiver:
+		g.GamePhase = GamePhaseShowdown
+		g.showdown()
+	default:
+		// 游戏结束，重新开始
+		g.EndGame()
+		return
+	}
+
+	// 设置第一个行动玩家（小盲注位置开始）
+	smallBlindPos := g.getNextActivePlayer(g.DealerPos)
+	g.CurrentPlayer = g.getNextActivePlayer(smallBlindPos)
+}
+
+// dealFlop 发翻牌（3张公共牌）
+func (g *Game) dealFlop() {
+	// 烧掉一张牌
+	g.dealCard()
+
+	// 发3张翻牌
+	for i := 0; i < 3; i++ {
+		card := g.dealCard()
+		g.CommunityCards = append(g.CommunityCards, card)
+	}
+}
+
+// dealTurn 发转牌（第4张公共牌）
+func (g *Game) dealTurn() {
+	// 烧掉一张牌
+	g.dealCard()
+
+	// 发转牌
+	card := g.dealCard()
+	g.CommunityCards = append(g.CommunityCards, card)
+}
+
+// dealRiver 发河牌（第5张公共牌）
+func (g *Game) dealRiver() {
+	// 烧掉一张牌
+	g.dealCard()
+
+	// 发河牌
+	card := g.dealCard()
+	g.CommunityCards = append(g.CommunityCards, card)
+}
+
+// showdown 摊牌阶段
+func (g *Game) showdown() {
+	// TODO: 实现牌型比较和底池分配
+	// 现在先简单结束游戏
+	g.EndGame()
 }

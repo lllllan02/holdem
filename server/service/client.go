@@ -41,11 +41,18 @@ func (c *Client) sendGameState() {
 		return
 	}
 
+	// 使用defer和recover来捕获panic
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WS] 发送游戏状态时发生panic - %s, 错误: %v\n", c.user, r)
+		}
+	}()
+
 	select {
 	case c.send <- messageBytes:
 		log.Printf("[WS] 游戏状态已发送 - %s\n", c.user)
 	default:
-		log.Printf("[WS] 发送游戏状态失败，通道已满 - %s\n", c.user)
+		log.Printf("[WS] 发送游戏状态失败，通道已满或已关闭 - %s\n", c.user)
 	}
 }
 
@@ -130,7 +137,15 @@ func (c *Client) handleClientMessage(message WSMessage) {
 	case MSG_LEAVE_SEAT:
 		c.handleLeaveSeat(message.Data)
 	case MSG_START_GAME:
-		c.handleStartGame(message.Data)
+		c.handleStartGame()
+	case MSG_FOLD:
+		c.handlePlayerAction("fold", message.Data)
+	case MSG_CALL:
+		c.handlePlayerAction("call", message.Data)
+	case MSG_RAISE:
+		c.handlePlayerAction("raise", message.Data)
+	case MSG_CHECK:
+		c.handlePlayerAction("check", message.Data)
 	default:
 		log.Printf("[WS] 未知消息类型 - %s, 类型: %s\n", c.user, message.Type)
 	}
@@ -278,7 +293,7 @@ func (c *Client) handleLeaveSeat(data interface{}) {
 }
 
 // handleStartGame 处理开始游戏请求
-func (c *Client) handleStartGame(data interface{}) {
+func (c *Client) handleStartGame() {
 	// 检查游戏是否可以开始
 	if !c.hub.game.CanStartGame() {
 		log.Printf("[WS] 游戏无法开始 - %s, 当前状态: %s, 玩家数: %d\n",
@@ -317,4 +332,53 @@ func (c *Client) handleStartGame(data interface{}) {
 	} else {
 		log.Printf("[WS] 游戏开始失败 - %s\n", c.user)
 	}
+}
+
+// handlePlayerAction 处理玩家行动消息
+func (c *Client) handlePlayerAction(action string, data interface{}) {
+	log.Printf("[WS] 处理玩家行动 - %s, 行动: %s\n", c.user, action)
+
+	// 解析行动数据
+	amount := 0
+	if data != nil {
+		if dataMap, ok := data.(map[string]interface{}); ok {
+			if amountFloat, ok := dataMap["amount"].(float64); ok {
+				amount = int(amountFloat)
+			}
+		}
+	}
+
+	// 调用游戏逻辑处理玩家行动
+	success := c.hub.game.PlayerAction(c.user.ID, action, amount)
+
+	if !success {
+		log.Printf("[WS] 玩家行动失败 - %s, 行动: %s\n", c.user, action)
+
+		// 发送错误消息给客户端
+		errorMsg := WSMessage{
+			Type: MSG_ERROR,
+			Data: ErrorData{
+				Message: "无效的行动",
+			},
+		}
+
+		messageBytes, err := json.Marshal(errorMsg)
+		if err != nil {
+			log.Printf("[WS] 序列化错误消息失败 - %s, 错误: %v\n", c.user, err)
+			return
+		}
+
+		select {
+		case c.send <- messageBytes:
+			log.Printf("[WS] 错误消息已发送 - %s\n", c.user)
+		default:
+			log.Printf("[WS] 发送错误消息失败，通道已满 - %s\n", c.user)
+		}
+		return
+	}
+
+	log.Printf("[WS] 玩家行动成功 - %s, 行动: %s, 金额: %d\n", c.user, action, amount)
+
+	// 广播游戏状态更新
+	c.hub.broadcastGameState()
 }
