@@ -104,6 +104,22 @@ func (p *Player) Bet(amount int) bool {
 	return true
 }
 
+// PostBlind 玩家下盲注（不设置HasActed标志）
+func (p *Player) PostBlind(amount int) bool {
+	if amount > p.Chips {
+		// 全下
+		amount = p.Chips
+		p.Status = PlayerStatusAllIn
+	}
+
+	p.Chips -= amount
+	p.CurrentBet += amount
+	p.TotalBet += amount
+	// 注意：下盲注不设置HasActed = true
+
+	return true
+}
+
 // Fold 玩家弃牌
 func (p *Player) Fold() {
 	p.Status = PlayerStatusFolded
@@ -112,5 +128,12 @@ func (p *Player) Fold() {
 
 // CanAct 检查玩家是否可以行动
 func (p *Player) CanAct() bool {
-	return p.Status == PlayerStatusSitting && !p.HasActed
+	// 玩家必须是坐着状态，且没有弃牌或全下
+	if p.Status != PlayerStatusSitting {
+		return false
+	}
+
+	// 如果玩家已经主动行动过了，就不能再行动
+	// 注意：下盲注不算主动行动
+	return !p.HasActed
 }

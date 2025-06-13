@@ -24,6 +24,9 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [currentUserSeat, setCurrentUserSeat] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showRaiseInput, setShowRaiseInput] = useState<boolean>(false);
+  const [raiseAmount, setRaiseAmount] = useState<string>("");
 
   // 获取用户信息
   const fetchUser = async () => {
@@ -33,6 +36,7 @@ function App() {
       setUser(data);
     } catch (error) {
       console.error("Failed to fetch user:", error);
+      setErrorMessage("获取用户信息失败，请刷新页面重试");
     }
   };
 
@@ -50,6 +54,21 @@ function App() {
       setUser(data);
     } catch (error) {
       console.error("Failed to update user name:", error);
+      setErrorMessage("更新用户名失败，请重试");
+    }
+  };
+
+  // 清除错误消息
+  const clearError = () => {
+    setErrorMessage(null);
+  };
+
+  // 处理加注输入框的键盘事件
+  const handleRaiseKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      confirmRaise();
+    } else if (e.key === 'Escape') {
+      cancelRaise();
     }
   };
 
@@ -128,9 +147,61 @@ function App() {
   };
 
   const handleRaise = () => {
-    // 简单的加注逻辑，加注到当前下注的两倍
-    const raiseAmount = Math.max((gameState?.currentBet || 0) * 2, 40);
-    wsService.raise(raiseAmount);
+    // 显示加注输入框
+    const minRaise = (gameState?.currentBet || 0) + (gameState?.bigBlind || 20);
+    setRaiseAmount(minRaise.toString());
+    setShowRaiseInput(true);
+  };
+
+  // 确认加注
+  const confirmRaise = () => {
+    const amount = parseInt(raiseAmount);
+    if (isNaN(amount)) {
+      setErrorMessage("请输入有效的数字");
+      return;
+    }
+
+    const minRaise = (gameState?.currentBet || 0) + (gameState?.bigBlind || 20);
+    if (amount < minRaise) {
+      setErrorMessage(`加注金额至少需要 ${minRaise}`);
+      return;
+    }
+
+    // 检查玩家筹码是否足够
+    if (gameState && user) {
+      const userPlayerIndex = gameState.players.findIndex(player => player.userId === user.id);
+      if (userPlayerIndex !== -1) {
+        const userPlayer = gameState.players[userPlayerIndex];
+        const raiseAmountNeeded = amount - userPlayer.currentBet;
+        if (raiseAmountNeeded > userPlayer.chips) {
+          setErrorMessage("筹码不足");
+          return;
+        }
+      }
+    }
+
+    wsService.raise(amount);
+    setShowRaiseInput(false);
+    setRaiseAmount("");
+  };
+
+  // 取消加注
+  const cancelRaise = () => {
+    setShowRaiseInput(false);
+    setRaiseAmount("");
+  };
+
+  // 获取最小加注金额
+  const getMinRaise = () => {
+    return (gameState?.currentBet || 0) + (gameState?.bigBlind || 20);
+  };
+
+  // 获取玩家当前筹码
+  const getCurrentUserChips = () => {
+    if (!gameState || !user) return 0;
+    const userPlayerIndex = gameState.players.findIndex(player => player.userId === user.id);
+    if (userPlayerIndex === -1) return 0;
+    return gameState.players[userPlayerIndex].chips;
   };
 
   // 计算跟注金额
@@ -166,7 +237,11 @@ function App() {
 
     wsService.onError((error: string) => {
       console.error("WebSocket error:", error);
-      alert(error); // 显示错误消息
+      setErrorMessage(error);
+      // 3秒后自动清除错误消息
+      setTimeout(() => {
+        setErrorMessage(null);
+      }, 3000);
     });
   }, []);
 
@@ -183,6 +258,55 @@ function App() {
 
   return (
     <div className="main-area">
+      {/* 错误提示组件 */}
+      {errorMessage && (
+        <div
+          style={{
+            position: "fixed",
+            top: "20px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "linear-gradient(135deg, #ff6b6b, #ee5a52)",
+            color: "white",
+            padding: "12px 24px",
+            borderRadius: "8px",
+            fontSize: "14px",
+            fontWeight: "500",
+            zIndex: 1000,
+            boxShadow: "0 4px 12px rgba(255, 107, 107, 0.3)",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            backdropFilter: "blur(10px)",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            maxWidth: "400px",
+            animation: "slideDown 0.3s ease-out",
+          }}
+        >
+          <span>⚠️</span>
+          <span>{errorMessage}</span>
+          <button
+            onClick={clearError}
+            style={{
+              background: "rgba(255, 255, 255, 0.2)",
+              border: "none",
+              color: "white",
+              borderRadius: "50%",
+              width: "20px",
+              height: "20px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "12px",
+              lineHeight: "1",
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      
       <PokerTable
         seatedPlayers={seatedPlayers}
         currentUserSeat={currentUserSeat}
@@ -225,27 +349,31 @@ function App() {
       )}
       
       {/* 玩家行动按钮 */}
-      {isCurrentUserTurn() && (
+      {isCurrentUserTurn() && !showRaiseInput && (
         <div
           style={{
             position: "fixed",
-            bottom: "20px",
-            right: "20px",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, 80px)",
             display: "flex",
-            gap: "10px",
+            gap: "12px",
             zIndex: 10,
           }}
         >
           <button
             onClick={handleFold}
             style={{
-              padding: "10px 20px",
+              padding: "12px 20px",
               fontSize: "14px",
-              backgroundColor: "#ff4444",
+              fontWeight: "bold",
+              backgroundColor: "#dc3545",
               color: "white",
               border: "none",
-              borderRadius: "5px",
+              borderRadius: "8px",
               cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+              minWidth: "80px",
             }}
           >
             弃牌
@@ -255,13 +383,16 @@ function App() {
             <button
               onClick={handleCheck}
               style={{
-                padding: "10px 20px",
+                padding: "12px 20px",
                 fontSize: "14px",
-                backgroundColor: "#4CAF50",
+                fontWeight: "bold",
+                backgroundColor: "#28a745",
                 color: "white",
                 border: "none",
-                borderRadius: "5px",
+                borderRadius: "8px",
                 cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                minWidth: "80px",
               }}
             >
               过牌
@@ -270,13 +401,16 @@ function App() {
             <button
               onClick={handleCall}
               style={{
-                padding: "10px 20px",
+                padding: "12px 20px",
                 fontSize: "14px",
-                backgroundColor: "#2196F3",
+                fontWeight: "bold",
+                backgroundColor: "#007bff",
                 color: "white",
                 border: "none",
-                borderRadius: "5px",
+                borderRadius: "8px",
                 cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                minWidth: "80px",
               }}
             >
               跟注 {getCallAmount()}
@@ -286,17 +420,132 @@ function App() {
           <button
             onClick={handleRaise}
             style={{
-              padding: "10px 20px",
+              padding: "12px 20px",
               fontSize: "14px",
-              backgroundColor: "#FF9800",
+              fontWeight: "bold",
+              backgroundColor: "#fd7e14",
               color: "white",
               border: "none",
-              borderRadius: "5px",
+              borderRadius: "8px",
               cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+              minWidth: "80px",
             }}
           >
             加注
           </button>
+        </div>
+      )}
+      
+      {/* 加注输入界面 */}
+      {isCurrentUserTurn() && showRaiseInput && (
+        <div
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, 80px)",
+            background: "rgba(0, 0, 0, 0.9)",
+            padding: "20px",
+            borderRadius: "12px",
+            border: "2px solid #fd7e14",
+            zIndex: 15,
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+            minWidth: "280px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          <div style={{ color: "white", fontSize: "16px", fontWeight: "bold", textAlign: "center" }}>
+            选择加注金额
+          </div>
+          
+          <div style={{ color: "#ccc", fontSize: "12px", textAlign: "center" }}>
+            最小加注: {getMinRaise()} | 您的筹码: {getCurrentUserChips()}
+          </div>
+          
+          <input
+            type="number"
+            value={raiseAmount}
+            onChange={(e) => setRaiseAmount(e.target.value)}
+            min={getMinRaise()}
+            max={getCurrentUserChips() + (gameState?.players.find(p => p.userId === user?.id)?.currentBet || 0)}
+            style={{
+              padding: "12px",
+              fontSize: "16px",
+              borderRadius: "6px",
+              border: "2px solid #fd7e14",
+              background: "white",
+              textAlign: "center",
+              outline: "none",
+            }}
+            placeholder={`最小 ${getMinRaise()}`}
+            autoFocus
+            onKeyDown={handleRaiseKeyDown}
+          />
+          
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              onClick={cancelRaise}
+              style={{
+                flex: 1,
+                padding: "10px",
+                fontSize: "14px",
+                fontWeight: "bold",
+                backgroundColor: "#6c757d",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+              }}
+            >
+              取消
+            </button>
+            
+            <button
+              onClick={confirmRaise}
+              style={{
+                flex: 1,
+                padding: "10px",
+                fontSize: "14px",
+                fontWeight: "bold",
+                backgroundColor: "#fd7e14",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+              }}
+            >
+              确认加注
+            </button>
+          </div>
+          
+          {/* 快捷加注按钮 */}
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            {[
+              { label: "最小", value: getMinRaise() },
+              { label: "2倍底池", value: (gameState?.pot || 0) * 2 },
+              { label: "全下", value: getCurrentUserChips() + (gameState?.players.find(p => p.userId === user?.id)?.currentBet || 0) },
+            ].map((option, index) => (
+              <button
+                key={index}
+                onClick={() => setRaiseAmount(Math.max(option.value, getMinRaise()).toString())}
+                style={{
+                  flex: 1,
+                  padding: "6px 8px",
+                  fontSize: "12px",
+                  backgroundColor: "#495057",
+                  color: "white",
+                  border: "1px solid #6c757d",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
       

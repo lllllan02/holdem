@@ -214,13 +214,13 @@ func (g *Game) postBlinds() {
 
 	// 小盲注
 	if smallBlindPos != -1 {
-		g.Players[smallBlindPos].Bet(g.SmallBlind)
+		g.Players[smallBlindPos].PostBlind(g.SmallBlind)
 		g.Pot += g.SmallBlind
 	}
 
 	// 大盲注
 	if bigBlindPos != -1 {
-		g.Players[bigBlindPos].Bet(g.BigBlind)
+		g.Players[bigBlindPos].PostBlind(g.BigBlind)
 		g.Pot += g.BigBlind
 		g.CurrentBet = g.BigBlind
 	}
@@ -310,11 +310,18 @@ func (g *Game) PlayerAction(userId string, action string, amount int) bool {
 			return false
 		}
 	case "raise":
-		// 加注必须至少是当前下注的两倍
-		if amount < g.CurrentBet*2 {
+		// 加注必须至少比当前下注多一个大盲注
+		minRaise := g.CurrentBet + g.BigBlind
+		if amount < minRaise {
 			return false
 		}
+
+		// 检查玩家是否有足够的筹码
 		raiseAmount := amount - player.CurrentBet
+		if raiseAmount > player.Chips {
+			return false
+		}
+
 		player.Bet(raiseAmount)
 		g.Pot += raiseAmount
 		g.CurrentBet = amount

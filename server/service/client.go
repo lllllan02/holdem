@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -369,32 +370,75 @@ func (c *Client) handlePlayerAction(action string, data interface{}) {
 		}
 	}
 
+	// 检查游戏状态
+	if c.hub.game.GameStatus != "playing" {
+		c.sendError("游戏未开始")
+		return
+	}
+
+	// 找到玩家位置
+	playerPos := -1
+	for i, player := range c.hub.game.Players {
+		if player.UserId == c.user.ID && !player.IsEmpty() {
+			playerPos = i
+			break
+		}
+	}
+
+	if playerPos == -1 {
+		c.sendError("您未在游戏中")
+		return
+	}
+
+	// 检查是否轮到该玩家行动
+	if c.hub.game.CurrentPlayer != playerPos {
+		c.sendError("还没轮到您行动")
+		return
+	}
+
+	player := &c.hub.game.Players[playerPos]
+
+	// 检查玩家是否可以行动
+	if !player.CanAct() {
+		c.sendError("您当前无法行动")
+		return
+	}
+
+	// 验证具体行动
+	var errorMsg string
+	switch action {
+	case "call":
+		callAmount := c.hub.game.CurrentBet - player.CurrentBet
+		if callAmount > player.Chips {
+			errorMsg = "筹码不足以跟注"
+		}
+	case "check":
+		if c.hub.game.CurrentBet != player.CurrentBet {
+			errorMsg = "有人下注，无法过牌"
+		}
+	case "raise":
+		minRaise := c.hub.game.CurrentBet + c.hub.game.BigBlind
+		if amount < minRaise {
+			errorMsg = fmt.Sprintf("加注金额至少需要 %d", minRaise)
+		} else {
+			raiseAmount := amount - player.CurrentBet
+			if raiseAmount > player.Chips {
+				errorMsg = "筹码不足以加注"
+			}
+		}
+	}
+
+	if errorMsg != "" {
+		c.sendError(errorMsg)
+		return
+	}
+
 	// 调用游戏逻辑处理玩家行动
 	success := c.hub.game.PlayerAction(c.user.ID, action, amount)
 
 	if !success {
 		log.Printf("[WS] 玩家行动失败 - %s, 行动: %s\n", c.user, action)
-
-		// 发送错误消息给客户端
-		errorMsg := WSMessage{
-			Type: MSG_ERROR,
-			Data: ErrorData{
-				Message: "无效的行动",
-			},
-		}
-
-		messageBytes, err := json.Marshal(errorMsg)
-		if err != nil {
-			log.Printf("[WS] 序列化错误消息失败 - %s, 错误: %v\n", c.user, err)
-			return
-		}
-
-		select {
-		case c.send <- messageBytes:
-			log.Printf("[WS] 错误消息已发送 - %s\n", c.user)
-		default:
-			log.Printf("[WS] 发送错误消息失败，通道已满 - %s\n", c.user)
-		}
+		c.sendError("行动失败，请重试")
 		return
 	}
 
@@ -402,4 +446,27 @@ func (c *Client) handlePlayerAction(action string, data interface{}) {
 
 	// 广播游戏状态更新
 	c.hub.broadcastGameState()
+}
+
+// sendError 发送错误消息的辅助方法
+func (c *Client) sendError(message string) {
+	errorMsg := WSMessage{
+		Type: MSG_ERROR,
+		Data: ErrorData{
+			Message: message,
+		},
+	}
+
+	messageBytes, err := json.Marshal(errorMsg)
+	if err != nil {
+		log.Printf("[WS] 序列化错误消息失败 - %s, 错误: %v\n", c.user, err)
+		return
+	}
+
+	select {
+	case c.send <- messageBytes:
+		log.Printf("[WS] 错误消息已发送 - %s: %s\n", c.user, message)
+	default:
+		log.Printf("[WS] 发送错误消息失败，通道已满 - %s\n", c.user)
+	}
 }
