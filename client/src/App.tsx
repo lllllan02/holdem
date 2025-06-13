@@ -5,22 +5,9 @@ import PokerTable from './components/PokerTable'
 import UserInfoCompact from './components/UserInfoCompact'
 import { wsService } from './services/websocket'
 
-const demoPlayers = [
-  { name: 'CO', chips: 126.5 },
-  { name: 'BTN', chips: 670 },
-  { name: 'SB', chips: 49 },
-  { name: 'BB', chips: 132 },
-  { name: 'UTG', chips: 670 },
-  { name: 'UTG+1', chips: 968 },
-  { name: 'UTG+2', chips: 670 },
-  { name: 'HJ', chips: 260 },
-  { name: 'LJ', chips: 269 },
-  { name: 'MP', chips: 300 },
-];
-const demoCommunityCards = ['A♠', 'K♥', '', '', ''];
-
 function App() {
   const [user, setUser] = useState<User | null>(null)
+  const [seatedPlayers, setSeatedPlayers] = useState<{ [seat: string]: { name: string; chips: number } }>({})
 
   // 获取用户信息
   const fetchUser = async () => {
@@ -50,6 +37,16 @@ function App() {
     }
   }
 
+  // 落座功能
+  const handleSit = (seat: string) => {
+    if (user) {
+      setSeatedPlayers(prev => ({
+        ...prev,
+        [seat]: { name: user.name, chips: 1000 } // 默认给1000筹码
+      }))
+    }
+  }
+
 
 
   useEffect(() => {
@@ -64,7 +61,7 @@ function App() {
 
   return (
     <div className="main-area">
-      <PokerTable players={demoPlayers} communityCards={demoCommunityCards} />
+      <PokerTable seatedPlayers={seatedPlayers} onSit={handleSit} />
       <UserInfoCompact user={user} onUpdateName={updateUserName} />
     </div>
   )

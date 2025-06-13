@@ -17,27 +17,19 @@ const SEAT_POSITIONS = [
   { x: 0.07, y: 0.68, seat: '左2' },
 ];
 
-// 扑克牌组件
-function PokerHand({ cards = [] }: { cards: string[] }) {
-  return (
-    <div style={{ display: 'flex', gap: 4 }}>
-      {cards.map((c, i) => (
-        <div key={i} style={{
-          width: 28, height: 38, background: '#fff', borderRadius: 4, border: '2px solid #FFD700',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 16, color: '#222',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.10)'
-        }}>{c}</div>
-      ))}
-    </div>
-  );
+
+
+interface Player {
+  name: string;
+  chips: number;
 }
 
 export default function PokerTable({
-  players = [],
-  communityCards = [],
+  seatedPlayers = {},
+  onSit,
 }: {
-  players?: { name: string; chips: number }[];
-  communityCards?: string[];
+  seatedPlayers?: { [seat: string]: Player };
+  onSit?: (seat: string) => void;
 }) {
   const width = 900, height = 500;
   const margin = 18;
@@ -107,36 +99,79 @@ export default function PokerTable({
           display: 'flex',
           gap: '16px',
         }}>
-          <CommunityCards cards={communityCards} />
+          <CommunityCards />
         </div>
         {/* 玩家座位放到桌沿外圈，手牌放到桌面内圈 */}
-        {players.map((p, i) => {
-          const pos = SEAT_POSITIONS[i % SEAT_POSITIONS.length];
-          // 桌沿外圈位置
-          const seatX = pos.x * width;
-          const seatY = pos.y * height;
+        {SEAT_POSITIONS.map((pos, i) => {
           const cx = width / 2, cy = height / 2;
-          // 计算向外偏移（桌沿宽度+座位半径）
-          const dx = seatX - cx, dy = seatY - cy;
-          const len = Math.sqrt(dx*dx + dy*dy);
-          const seatRadius = 36; // 玩家圆圈半径
-          const extraOffset = 56; // 额外外移距离（加大）
-          const offset = (width - (width - margin * 2)) / 2 + seatRadius + extraOffset;
-          const px = cx + dx / len * (len + offset);
-          const py = cy + dy / len * (len + offset);
-          // 桌面内圈手牌位置（向内偏移）
-          const handOffset = -36;
-          const hx = cx + dx / len * (len + handOffset);
-          const hy = cy + dy / len * (len + handOffset);
-          // 假数据：每人两张手牌
-          const demoCards = i === 1 ? ['A♠', 'K♥'] : ['?', '?'];
+          
+          // 重新设计整齐的布局
+          let px, py, hx, hy;
+          
+          switch (pos.seat) {
+            case '上1': // LJ
+              px = width * 0.32;
+              py = -80; // 完全移到桌面外上方
+              hx = width * 0.32;
+              hy = 100; // 手牌确保在桌面内
+              break;
+            case '上2': // MP  
+              px = width * 0.50;
+              py = -80; // 完全移到桌面外上方
+              hx = width * 0.50;
+              hy = 100; // 手牌确保在桌面内
+              break;
+            case '上3': // SB
+              px = width * 0.68;
+              py = -80; // 完全移到桌面外上方
+              hx = width * 0.68;
+              hy = 100; // 手牌确保在桌面内
+              break;
+            case '右1': // BB
+              px = width + 80; // 完全移到桌面外右侧
+              py = height * 0.32;
+              hx = width - 120; // 手牌确保在桌面内
+              hy = height * 0.32;
+              break;
+            case '右2': // UTG
+              px = width + 80; // 完全移到桌面外右侧
+              py = height * 0.68;
+              hx = width - 120; // 手牌确保在桌面内
+              hy = height * 0.68;
+              break;
+            case '自己': // UTG+1
+              px = width * 0.50;
+              py = height + 80; // 完全移到桌面外下方
+              hx = width * 0.50;
+              hy = height - 100; // 手牌确保在桌面内
+              break;
+            case '左1': // UTG+2
+              px = -80; // 完全移到桌面外左侧
+              py = height * 0.32;
+              hx = 120; // 手牌确保在桌面内
+              hy = height * 0.32;
+              break;
+            case '左2': // HJ
+              px = -80; // 完全移到桌面外左侧
+              py = height * 0.68;
+              hx = 120; // 手牌确保在桌面内
+              hy = height * 0.68;
+              break;
+            default:
+              px = cx;
+              py = cy;
+              hx = cx;
+              hy = cy;
+          }
+          // 获取该座位的玩家信息
+          const player = seatedPlayers[pos.seat];
           return (
             <React.Fragment key={i}>
               {/* 桌沿外圈的玩家座位 */}
               <PlayerSeat
-                name={p.name}
-                chips={p.chips}
+                player={player}
                 seat={pos.seat}
+                onSit={() => onSit?.(pos.seat)}
                 style={{
                   position: 'absolute',
                   left: px,
@@ -145,18 +180,6 @@ export default function PokerTable({
                   zIndex: 2,
                 }}
               />
-              {/* 桌面内圈的手牌 */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: hx,
-                  top: hy,
-                  transform: 'translate(-50%, -50%)',
-                  zIndex: 1,
-                }}
-              >
-                <PokerHand cards={demoCards} />
-              </div>
             </React.Fragment>
           );
         })}
