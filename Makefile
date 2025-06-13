@@ -16,7 +16,7 @@ mod:
 # 运行前端服务
 .PHONY: client
 client:
-	cd client && npm run dev
+	cd client && npx vite --host 0.0.0.0 --port 5173
 
 # 运行所有服务
 .PHONY: dev

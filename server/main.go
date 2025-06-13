@@ -8,6 +8,9 @@ import (
 func main() {
 	r := gin.Default()
 
+	// 配置可信任的代理，确保 ClientIP 获取的一致性
+	r.SetTrustedProxies([]string{"127.0.0.1", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"})
+
 	// 注册路由
 	r.GET("/user", service.GetUserHandler)
 	r.PUT("/user/name", service.UpdateUserNameHandler)

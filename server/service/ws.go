@@ -25,14 +25,19 @@ func init() {
 
 // WebSocketHandler 处理 WebSocket 连接
 func WebSocketHandler(c *gin.Context) {
+	ip := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	log.Printf("[WS] 连接请求 - IP: %s, UserAgent: %s", ip, userAgent)
+
 	// 获取用户信息
-	user := GetOrCreateUser(c.ClientIP(), c.GetHeader("User-Agent"))
+	user := GetOrCreateUser(ip, userAgent)
 	if user == nil {
+		log.Printf("[WS] 用户识别失败 - IP: %s", ip)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "未能识别用户"})
 		return
 	}
 
-	log.Printf("[WS] 收到连接请求 - %s\n", user)
+	log.Printf("[WS] 收到连接请求 - %s", user)
 
 	// 升级 HTTP 连接为 WebSocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)

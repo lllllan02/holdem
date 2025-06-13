@@ -84,7 +84,9 @@ class WebSocketService {
     private connect() {
         if (this.ws?.readyState === WebSocket.OPEN) return;
 
-        const wsUrl = `ws://${window.location.hostname}:8080/ws`;
+        // 使用相对路径，让 WebSocket 也通过 Vite 代理
+        // 这样 HTTP API 和 WebSocket 请求都会有相同的源 IP
+        const wsUrl = `ws://${window.location.host}/ws`;
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
