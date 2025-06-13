@@ -38,8 +38,8 @@ func (c *Client) sendGameState() {
 	for i, player := range c.hub.game.Players {
 		playersCopy[i] = player
 
-		// 如果不是当前用户，隐藏手牌
-		if player.UserId != c.user.ID {
+		// 如果不是当前用户且不是摊牌阶段，隐藏手牌
+		if player.UserId != c.user.ID && c.hub.game.GamePhase != "showdown" {
 			playersCopy[i].HoleCards = make([]poker.Card, len(player.HoleCards))
 			// 保留手牌数量但不显示内容
 			for j := range player.HoleCards {
@@ -168,6 +168,8 @@ func (c *Client) handleClientMessage(message WSMessage) {
 		c.handlePlayerAction("raise", message.Data)
 	case MSG_CHECK:
 		c.handlePlayerAction("check", message.Data)
+	case MSG_END_GAME:
+		c.handleEndGame()
 	default:
 		log.Printf("[WS] 未知消息类型 - %s, 类型: %s\n", c.user, message.Type)
 	}
@@ -469,4 +471,21 @@ func (c *Client) sendError(message string) {
 	default:
 		log.Printf("[WS] 发送错误消息失败，通道已满 - %s\n", c.user)
 	}
+}
+
+// handleEndGame 处理结束游戏请求
+func (c *Client) handleEndGame() {
+	// 检查游戏状态，只有在等待状态或摊牌阶段才能结束游戏
+	if c.hub.game.GameStatus == "playing" && c.hub.game.GamePhase != "showdown" {
+		log.Printf("[WS] 游戏进行中不允许结束游戏 - %s\n", c.user)
+		c.sendError("游戏进行中不能结束游戏")
+		return
+	}
+
+	// 结束游戏
+	c.hub.game.EndGame()
+	log.Printf("[WS] 游戏结束成功 - %s\n", c.user)
+
+	// 广播游戏状态更新
+	c.hub.broadcastGameState()
 }

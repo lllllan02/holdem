@@ -14,14 +14,16 @@ const (
 )
 
 type Player struct {
-	UserId     string `json:"userId"`
-	Name       string `json:"name"`
-	Status     string `json:"status"`
-	Chips      int    `json:"chips"`
-	HoleCards  []Card `json:"holeCards"`  // 底牌（只发给玩家自己）
-	CurrentBet int    `json:"currentBet"` // 当前轮下注额
-	TotalBet   int    `json:"totalBet"`   // 本局总下注额
-	HasActed   bool   `json:"hasActed"`   // 本轮是否已行动
+	UserId     string    `json:"userId"`
+	Name       string    `json:"name"`
+	Status     string    `json:"status"`
+	Chips      int       `json:"chips"`
+	HoleCards  []Card    `json:"holeCards"`  // 底牌（只发给玩家自己）
+	CurrentBet int       `json:"currentBet"` // 当前轮下注额
+	TotalBet   int       `json:"totalBet"`   // 本局总下注额
+	HasActed   bool      `json:"hasActed"`   // 本轮是否已行动
+	HandRank   *HandRank `json:"handRank"`   // 牌型（摊牌时显示）
+	WinAmount  int       `json:"winAmount"`  // 本局赢得的金额
 }
 
 // NewPlayer 创建一个新的空座位玩家
@@ -35,16 +37,20 @@ func NewPlayer() Player {
 		CurrentBet: 0,
 		TotalBet:   0,
 		HasActed:   false,
+		HandRank:   nil,
+		WinAmount:  0,
 	}
 }
 
 // NewSittingPlayer 创建一个已落座的玩家
 func NewSittingPlayer(userId, name string) Player {
 	return Player{
-		UserId: userId,
-		Name:   name,
-		Status: PlayerStatusSitting,
-		Chips:  DefaultChips,
+		UserId:    userId,
+		Name:      name,
+		Status:    PlayerStatusSitting,
+		Chips:     DefaultChips,
+		HandRank:  nil,
+		WinAmount: 0,
 	}
 }
 
@@ -63,6 +69,8 @@ func (p *Player) Reset() {
 	p.CurrentBet = 0
 	p.TotalBet = 0
 	p.HasActed = false
+	p.HandRank = nil
+	p.WinAmount = 0
 }
 
 // SitDown 玩家落座
@@ -75,6 +83,8 @@ func (p *Player) SitDown(userId, name string) {
 	p.CurrentBet = 0
 	p.TotalBet = 0
 	p.HasActed = false
+	p.HandRank = nil
+	p.WinAmount = 0
 }
 
 // ResetForNewRound 为新一轮游戏重置玩家状态
@@ -86,6 +96,8 @@ func (p *Player) ResetForNewRound() {
 	p.CurrentBet = 0
 	p.TotalBet = 0
 	p.HasActed = false
+	p.HandRank = nil
+	p.WinAmount = 0
 }
 
 // Bet 玩家下注

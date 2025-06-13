@@ -20,6 +20,7 @@ const (
 	MSG_CALL       MessageType = "call"
 	MSG_RAISE      MessageType = "raise"
 	MSG_CHECK      MessageType = "check"
+	MSG_END_GAME   MessageType = "end_game"
 )
 
 // WebSocket消息结构

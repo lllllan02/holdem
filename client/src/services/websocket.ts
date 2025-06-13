@@ -10,7 +10,8 @@ export type MessageType =
   | 'fold'
   | 'call'
   | 'raise'
-  | 'check';
+  | 'check'
+  | 'end_game';
 
 // WebSocket消息结构
 export interface WSMessage {
@@ -25,6 +26,12 @@ export interface Card {
   value: number; // 数值: 2-14 (A=14)
 }
 
+// 牌型结构
+export interface HandRank {
+  rank: number;    // 牌型等级
+  values: number[]; // 关键牌值
+}
+
 // 玩家类型
 export interface Player {
   userId: string;
@@ -35,6 +42,8 @@ export interface Player {
   currentBet: number;   // 当前轮下注额
   totalBet: number;     // 本局总下注额
   hasActed: boolean;    // 本轮是否已行动
+  handRank?: HandRank;  // 牌型（摊牌时显示）
+  winAmount?: number;   // 本局赢得的金额
 }
 
 // 游戏状态类型
@@ -175,6 +184,28 @@ class WebSocketService {
     public raise(amount: number) {
         this.sendMessage('raise', { amount });
     }
+
+    // 发送结束游戏消息
+    public endGame() {
+        this.sendMessage('end_game', {});
+    }
+}
+
+// 获取牌型名称
+export function getHandName(rank: number): string {
+  switch (rank) {
+    case 10: return "皇家同花顺";
+    case 9: return "同花顺";
+    case 8: return "四条";
+    case 7: return "葫芦";
+    case 6: return "同花";
+    case 5: return "顺子";
+    case 4: return "三条";
+    case 3: return "两对";
+    case 2: return "一对";
+    case 1: return "高牌";
+    default: return "未知";
+  }
 }
 
 export const wsService = WebSocketService.getInstance(); 

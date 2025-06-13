@@ -1,6 +1,7 @@
 package poker
 
 import (
+	"log"
 	"math/rand"
 	"time"
 )
@@ -454,7 +455,54 @@ func (g *Game) dealRiver() {
 
 // showdown 摊牌阶段
 func (g *Game) showdown() {
-	// TODO: 实现牌型比较和底池分配
-	// 现在先简单结束游戏
-	g.EndGame()
+	// 收集所有未弃牌的玩家
+	var activePlayers []*Player
+	for i := range g.Players {
+		player := &g.Players[i]
+		if !player.IsEmpty() && player.Status != PlayerStatusFolded {
+			activePlayers = append(activePlayers, player)
+		}
+	}
+
+	// 如果只有一个玩家，直接获胜
+	if len(activePlayers) == 1 {
+		winner := activePlayers[0]
+		winner.Chips += g.Pot
+		winner.WinAmount = g.Pot
+		log.Printf("[游戏] 玩家 %s 获胜，赢得底池 %d", winner.Name, g.Pot)
+		return // 不立即结束游戏，让前端显示结果
+	}
+
+	// 为所有参与游戏的玩家设置手牌信息（用于前端显示）
+	for i := range g.Players {
+		player := &g.Players[i]
+		if !player.IsEmpty() && len(player.HoleCards) == 2 {
+			bestHand := GetBestHand(player, g.CommunityCards)
+			// 转换为旧格式以保持兼容性
+			oldHandRank := ConvertToOldHandRank(bestHand)
+			player.HandRank = &oldHandRank
+			log.Printf("[摊牌] 玩家 %s 的牌型: %s (状态: %s)", player.Name, GetHandRankName(bestHand.Rank), player.Status)
+		}
+	}
+
+	// 使用新的手牌比较算法找出获胜者（只考虑未弃牌的玩家）
+	winners := FindWinningHands(activePlayers, g.CommunityCards)
+
+	// 分配底池
+	winAmount := g.Pot / len(winners)
+	remainder := g.Pot % len(winners)
+
+	for i, winner := range winners {
+		amount := winAmount
+		if i < remainder {
+			amount++ // 余数分给前几个获胜者
+		}
+
+		winner.Player.Chips += amount
+		winner.Player.WinAmount = amount
+
+		log.Printf("[游戏] 玩家 %s 获胜，赢得 %d 筹码", winner.Player.Name, amount)
+	}
+
+	// 不立即结束游戏，让前端显示结果后再结束
 }
