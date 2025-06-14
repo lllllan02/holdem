@@ -3,12 +3,12 @@ import { type Player as WSPlayer, getHandName } from '../services/websocket';
 interface ShowdownModalProps {
   players: WSPlayer[];
   pot: number;
-  onNewGame: () => void;
   onClose: () => void;
+  onReady: () => void;
   communityCards?: { suit: string; rank: string }[];
 }
 
-export default function ShowdownModal({ players, pot, onNewGame, communityCards }: ShowdownModalProps) {
+export default function ShowdownModal({ players, pot, onClose, communityCards, onReady }: ShowdownModalProps) {
   return (
     <div style={{
       position: 'fixed',
@@ -254,10 +254,11 @@ export default function ShowdownModal({ players, pot, onNewGame, communityCards 
       <div style={{
         marginTop: '20px',
         display: 'flex',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        gap: '10px'
       }}>
         <button
-          onClick={onNewGame}
+          onClick={onReady}
           style={{
             background: '#4CAF50',
             color: 'white',
@@ -269,7 +270,22 @@ export default function ShowdownModal({ players, pot, onNewGame, communityCards 
             fontWeight: 'bold'
           }}
         >
-          开始新一轮
+          准备
+        </button>
+        <button
+          onClick={onClose}
+          style={{
+            background: '#666',
+            color: 'white',
+            border: 'none',
+            padding: '10px 20px',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            fontWeight: 'bold'
+          }}
+        >
+          关闭
         </button>
       </div>
     </div>

@@ -249,7 +249,7 @@ function App() {
   // 检查是否可以显示准备按钮
   const canShowReadyButton = () => {
     if (!gameState || !currentUserSeat) return false;
-    return gameState.gameStatus === "waiting";
+    return gameState.gameStatus === "waiting" || gameState.gamePhase === "showdown";
   };
 
   // 获取准备状态文本
@@ -912,9 +912,9 @@ function App() {
           pot={gameState.pot}
           communityCards={gameState.communityCards}
           onClose={() => setShowdown(false)}
-          onNewGame={() => {
+          onReady={() => {
+            wsService.ready();
             setShowdown(false);
-            wsService.endGame();
           }}
         />
       )}

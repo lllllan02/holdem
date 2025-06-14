@@ -716,6 +716,7 @@ func (g *Game) finishShowdown() {
 
 	// 切换回普通摊牌阶段
 	g.GamePhase = GamePhaseShowdown
+	g.GameStatus = GameStatusWaiting // 将游戏状态改为等待
 
 	// 收集所有未弃牌的玩家
 	var activePlayers []*Player
@@ -755,6 +756,14 @@ func (g *Game) finishShowdown() {
 		log.Printf("[游戏] 玩家 %s 获胜，赢得 %d 筹码", winner.Player.Name, amount)
 	}
 
+	// 重置所有玩家的准备状态
+	for i := range g.Players {
+		if !g.Players[i].IsEmpty() {
+			g.Players[i].IsReady = false
+			log.Printf("[游戏] 重置玩家 %s 的准备状态", g.Players[i].Name)
+		}
+	}
+
 	// 重置摊牌相关字段
 	g.ShowdownOrder = make([]int, 0)
 	g.CurrentShowdown = -1
@@ -785,7 +794,8 @@ func (g *Game) CheckAllPlayersReady() bool {
 
 // SetPlayerReady 设置玩家准备状态
 func (g *Game) SetPlayerReady(userId string, ready bool) bool {
-	if g.GameStatus != GameStatusWaiting {
+	// 只有在等待状态或摊牌阶段才能设置准备状态
+	if g.GameStatus != GameStatusWaiting && g.GamePhase != GamePhaseShowdown {
 		return false
 	}
 
