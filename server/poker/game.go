@@ -42,6 +42,7 @@ type Game struct {
 	BigBlind       int      `json:"bigBlind"`       // 大盲注
 	Deck           []Card   `json:"-"`              // 牌堆（不发送给客户端）
 	CountdownTimer int      `json:"countdownTimer"` // 倒计时（秒）
+	Spectators     int      `json:"spectators"`     // 观众数量
 
 	// 摊牌相关字段
 	ShowdownOrder   []int `json:"showdownOrder"`   // 摊牌顺序（玩家索引）

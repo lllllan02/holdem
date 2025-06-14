@@ -1246,6 +1246,7 @@ function App() {
           <div>游戏状态: {gameState.gameStatus}</div>
           {gameState.gamePhase && <div>游戏阶段: {gameState.gamePhase}</div>}
           <div>在线玩家: {gameState.players.filter(p => p.status !== "empty").length}</div>
+          <div>观众: {gameState.spectators}</div>
           {gameState.pot > 0 && <div>底池: {gameState.pot}</div>}
           {gameState.currentBet > 0 && <div>当前下注: {gameState.currentBet}</div>}
           {gameState.dealerPos >= 0 && <div>庄家位置: 座位{gameState.dealerPos + 1}</div>}

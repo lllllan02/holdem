@@ -48,8 +48,33 @@ func NewHub() *Hub {
 	return hub
 }
 
+// updateSpectatorCount 更新观众数量
+func (h *Hub) updateSpectatorCount() {
+	spectatorCount := 0
+	sittingPlayers := make(map[string]bool)
+
+	// 先记录所有已落座的玩家
+	for _, player := range h.game.Players {
+		if !player.IsEmpty() {
+			sittingPlayers[player.UserId] = true
+		}
+	}
+
+	// 计算观众数量（在线但未落座的用户）
+	for _, client := range h.clients {
+		if !sittingPlayers[client.user.ID] {
+			spectatorCount++
+		}
+	}
+
+	h.game.Spectators = spectatorCount
+}
+
 // broadcastGameState 广播游戏状态给所有客户端
 func (h *Hub) broadcastGameState() {
+	// 更新观众数量
+	h.updateSpectatorCount()
+
 	log.Printf("[Hub] 广播游戏状态更新, 目标客户端数: %d\n", len(h.clients))
 
 	// 检查是否需要启动摊牌定时器
