@@ -460,102 +460,86 @@ export default function PokerTable({
                     >
                       已准备
                     </div>
-                  ) : player.status === "folded" ? (
-                    <div
-                      style={{
-                        background: "rgba(255, 0, 0, 0.8)",
-                        color: "white",
-                        padding: "8px 20px",
-                        borderRadius: "8px",
-                        fontSize: "16px",
-                        fontWeight: "bold",
-                        transform: "rotate(-15deg)",
-                        border: "2px solid #ff0000",
-                        boxShadow: "0 0 15px rgba(255, 0, 0, 0.6)",
-                        whiteSpace: "nowrap",
-                        letterSpacing: "1px",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      弃牌
-                    </div>
-                  ) : null
+                  ) :
+                    player.status === "folded" && (
+                      <div
+                        style={{
+                          background: "rgba(255, 0, 0, 0.8)",
+                          color: "white",
+                          padding: "8px 20px",
+                          borderRadius: "8px",
+                          fontSize: "16px",
+                          fontWeight: "bold",
+                          transform: "rotate(-15deg)",
+                          border: "2px solid #ff0000",
+                          boxShadow: "0 0 15px rgba(255, 0, 0, 0.6)",
+                          whiteSpace: "nowrap",
+                          letterSpacing: "1px",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        弃牌
+                      </div>
+                    )
                 )}
 
                 {/* 显示手牌 */}
-                {player?.holeCards?.map((card, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      width: "36px",
-                      height: "50px",
-                      background:
-                        (isCurrentUser ||
-                          (gamePhase === "showdown_reveal" &&
-                            shouldShowCard(seatIndex)) ||
-                          gamePhase === "showdown") &&
-                          card.suit
-                            ? "white"
-                            : "rgba(45, 55, 72, 0.8)",
-                      border:
-                        (isCurrentUser ||
-                          (gamePhase === "showdown_reveal" &&
-                            shouldShowCard(seatIndex)) ||
-                          gamePhase === "showdown") &&
-                          card.suit
-                            ? "1px solid rgba(0, 0, 0, 0.1)"
-                            : "1px solid rgba(74, 85, 104, 0.2)",
-                      borderRadius: "5px",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "12px",
-                      fontWeight: "bold",
-                      boxShadow:
-                        (isCurrentUser ||
-                          (gamePhase === "showdown_reveal" &&
-                            shouldShowCard(seatIndex)) ||
-                          gamePhase === "showdown") &&
-                          card.suit
+                <div style={{
+                  display: "flex",
+                  gap: "4px", // 减小牌之间的间距
+                  flexDirection: "row",
+                }}>
+                  {player?.holeCards?.map((card, index) => {
+                    const shouldShow =
+                      isCurrentUser ||
+                      (gamePhase === "showdown_reveal" &&
+                        shouldShowCard(seatIndex)) ||
+                      gamePhase === "showdown";
+                    const hasCard = card.suit && card.rank;
+
+                    return (
+                      <div
+                        key={index}
+                        style={{
+                          width: "36px", // 减小宽度
+                          height: "50px", // 减小高度
+                          background: shouldShow && hasCard ? "white" : "#2D3748", // 问号牌使用深色背景
+                          border: shouldShow && hasCard ? "1px solid rgba(0, 0, 0, 0.1)" : "1px solid rgba(74, 85, 104, 0.2)",
+                          borderRadius: "5px", // 减小圆角
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "14px", // 减小字体大小
+                          fontWeight: "bold",
+                          boxShadow: shouldShow && hasCard 
                             ? "0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.08)"
                             : "0 2px 4px rgba(0, 0, 0, 0.2)",
-                    }}
-                  >
-                    {(() => {
-                      const shouldShow =
-                        isCurrentUser ||
-                        (gamePhase === "showdown_reveal" &&
-                          shouldShowCard(seatIndex)) ||
-                        gamePhase === "showdown";
-                      const hasCard = card.suit && card.rank;
-
-                      return shouldShow && hasCard ? (
-                        <>
-                          <div
-                            style={{ color: getSuitColor(card.suit) }}
-                          >
-                            {card.rank}
+                        }}
+                      >
+                        {shouldShow && hasCard ? (
+                          <>
+                            <div style={{ color: getSuitColor(card.suit) }}>
+                              {card.rank}
+                            </div>
+                            <div
+                              style={{
+                                color: getSuitColor(card.suit),
+                                fontSize: "16px", // 减小花色符号大小
+                              }}
+                            >
+                              {getSuitSymbol(card.suit)}
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ color: "#A0AEC0", fontSize: "18px" }}>
+                            ?
                           </div>
-                          <div
-                            style={{
-                              color: getSuitColor(card.suit),
-                              fontSize: "14px",
-                            }}
-                          >
-                            {getSuitSymbol(card.suit)}
-                          </div>
-                        </>
-                      ) : (
-                        <div
-                          style={{ color: "#a0aec0", fontSize: "16px" }}
-                        >
-                          ?
-                        </div>
-                      );
-                    })()}
-                  </div>
-                ))}
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
 
                 {/* 牌型显示 - 在摊牌阶段显示 */}
                 {gamePhase === "showdown" &&
