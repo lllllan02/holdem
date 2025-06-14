@@ -24,6 +24,7 @@ const convertWSPlayerToLocal = (wsPlayer: WSPlayer, _: number) => {
   }
 
   return {
+    userId: wsPlayer.userId,
     name: wsPlayer.name,
     chips: wsPlayer.chips,
     currentBet: wsPlayer.currentBet,

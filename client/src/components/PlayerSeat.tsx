@@ -2,6 +2,7 @@ import type { Card } from "../services/websocket";
 import { useEffect } from "react";
 
 interface Player {
+  userId: string;
   name: string;
   chips: number;
   currentBet?: number;
@@ -84,14 +85,128 @@ export default function PlayerSeat({
         ...style,
         cursor: canSit ? "pointer" : "default",
         opacity: isEmpty && gameStatus === "playing" ? 0.5 : 1,
-        boxShadow: isCurrentPlayer ? "0 0 15px #FFD700" : "none",
-        border: isCurrentPlayer ? "3px solid #FFD700" : "2px solid #666",
-        background: isEmpty ? "rgba(60,60,70,0.6)" : "rgba(255, 215, 0, 0.1)",
+        position: "absolute",
+        width: "80px",
+        height: "120px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "4px",
+        background: "transparent",
+        border: "none",
       }}
       onClick={canSit ? onSit : undefined}
     >
-      <div className="player-seat-label">{seat}</div>
+      {/* 头像圆圈 */}
+      <div
+        style={{
+          position: "relative",
+          width: "80px",
+          height: "80px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "80px",
+            height: "80px",
+            borderRadius: "50%",
+            border: isCurrentPlayer ? "3px solid #FFD700" : "2px solid #666",
+            boxShadow: isCurrentPlayer ? "0 0 15px #FFD700" : "none",
+            background: isEmpty ? "rgba(60,60,70,0.6)" : "rgba(0, 0, 0, 0.2)",
+            overflow: "hidden",
+          }}
+        >
+          {!isEmpty && player && (
+            <img
+              src={`/api/avatar/${player.userId}`}
+              alt={player.name}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                opacity: player.status === "folded" ? 0.5 : 1,
+              }}
+            />
+          )}
+          {isEmpty && (
+            <div 
+              style={{ 
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                color: "#999", 
+                fontSize: "14px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {gameStatus === "playing" ? "游戏中" : "点击落座"}
+            </div>
+          )}
+        </div>
+      </div>
 
+      {/* 信息框 */}
+      {!isEmpty && player && (
+        <div
+          style={{
+            background: "rgba(0, 0, 0, 0.7)",
+            borderRadius: "4px",
+            padding: "4px 8px",
+            textAlign: "center",
+            border: "1px solid #666",
+            width: "100%",
+          }}
+        >
+          <div
+            style={{
+              color: "#FFD700",
+              fontSize: "12px",
+              fontWeight: "bold",
+              opacity: player.status === "folded" ? 0.5 : 1,
+            }}
+          >
+            {player.name}
+          </div>
+          <div
+            style={{
+              color: "#fff",
+              fontSize: "11px",
+            }}
+          >
+            {player.chips}
+          </div>
+        </div>
+      )}
+
+      {/* 下注金额 */}
+      {!isEmpty && player && player.currentBet && player.currentBet > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0, 0, 0, 0.7)",
+            color: "#FFD700",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            fontSize: "12px",
+            marginTop: "4px",
+          }}
+        >
+          {player.currentBet}
+        </div>
+      )}
+
+      {/* Dealer 标记 */}
       {isDealer && !isEmpty && (
         <div
           style={{
@@ -116,12 +231,13 @@ export default function PlayerSeat({
         </div>
       )}
 
+      {/* 盲注标记 */}
       {isSmallBlind && !isEmpty && (
         <div
           style={{
             position: "absolute",
             top: "-8px",
-            left: isBigBlind ? "-35px" : "-8px", // 如果同时是大盲，向左偏移
+            left: isBigBlind ? "-35px" : "-8px",
             background: "#4CAF50",
             color: "white",
             borderRadius: "4px",
@@ -141,7 +257,7 @@ export default function PlayerSeat({
           style={{
             position: "absolute",
             top: "-8px",
-            left: isSmallBlind ? "20px" : "-8px", // 如果同时是小盲，向右偏移
+            left: isSmallBlind ? "20px" : "-8px",
             background: "#2196F3",
             color: "white",
             borderRadius: "4px",
@@ -156,49 +272,27 @@ export default function PlayerSeat({
         </div>
       )}
 
-      {isEmpty ? (
-        <div className="player-seat-empty">
-          {gameStatus === "playing" ? "游戏中" : "点击落座"}
+      {/* 离开按钮 */}
+      {!isEmpty && gameStatus === "waiting" && onLeave && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onLeave();
+          }}
+          style={{
+            position: "absolute",
+            bottom: "-20px",
+            right: "0",
+            background: "#F44336",
+            color: "white",
+            padding: "2px 8px",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "12px",
+          }}
+        >
+          离开
         </div>
-      ) : (
-        player && (
-          <>
-            <div
-              className="player-seat-name"
-              style={{
-                color: "#FFD700",
-                opacity: player.status === "folded" ? 0.5 : 1,
-              }}
-            >
-              {player.name}
-            </div>
-            <div className="player-seat-chips">{player.chips}</div>
-            {player.currentBet && player.currentBet > 0 && (
-              <div className="player-bet-amount">{player.currentBet}</div>
-            )}
-            {!isEmpty && gameStatus === "waiting" && onLeave && (
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onLeave();
-                }}
-                style={{
-                  position: "absolute",
-                  bottom: "-20px",
-                  right: "0",
-                  background: "#F44336",
-                  color: "white",
-                  padding: "2px 8px",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-              >
-                离开
-              </div>
-            )}
-          </>
-        )
       )}
     </div>
   );
