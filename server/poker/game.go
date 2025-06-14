@@ -357,8 +357,11 @@ func (g *Game) getNextActivePlayer(currentPos int) int {
 
 // PlayerAction 处理玩家行动
 func (g *Game) PlayerAction(userId string, action string, amount int) bool {
+	log.Printf("[游戏] 开始处理玩家行动 - 玩家ID: %s, 行动: %s, 金额: %d", userId, action, amount)
+
 	// 检查游戏状态
 	if g.GameStatus != GameStatusPlaying {
+		log.Printf("[游戏] 游戏状态错误: %s", g.GameStatus)
 		return false
 	}
 
@@ -372,11 +375,13 @@ func (g *Game) PlayerAction(userId string, action string, amount int) bool {
 	}
 
 	if playerPos == -1 {
+		log.Printf("[游戏] 未找到玩家: %s", userId)
 		return false
 	}
 
 	// 检查是否轮到该玩家行动
 	if g.CurrentPlayer != playerPos {
+		log.Printf("[游戏] 不是该玩家的行动轮次 - 当前玩家: %d, 行动玩家: %d", g.CurrentPlayer+1, playerPos+1)
 		return false
 	}
 
@@ -384,37 +389,45 @@ func (g *Game) PlayerAction(userId string, action string, amount int) bool {
 
 	// 检查玩家是否可以行动
 	if !player.CanAct() {
+		log.Printf("[游戏] 玩家无法行动 - 状态: %s, HasActed: %v", player.Status, player.HasActed)
 		return false
 	}
 
 	// 处理不同的行动
 	switch action {
 	case "fold":
+		log.Printf("[游戏] 玩家 %s (座位%d) 执行弃牌", player.Name, playerPos+1)
 		player.Fold()
 	case "call":
 		callAmount := g.CurrentBet - player.CurrentBet
 		if callAmount > 0 {
+			if callAmount > player.Chips {
+				log.Printf("[游戏] 玩家筹码不足以跟注 - 需要: %d, 拥有: %d", callAmount, player.Chips)
+				return false
+			}
 			player.Bet(callAmount)
 			g.Pot += callAmount
 		}
-		player.HasActed = true
 	case "check":
 		// 只有在没有下注时才能过牌
 		if g.CurrentBet == player.CurrentBet {
 			player.HasActed = true
 		} else {
+			log.Printf("[游戏] 无法过牌 - 当前注: %d, 玩家注: %d", g.CurrentBet, player.CurrentBet)
 			return false
 		}
 	case "raise":
 		// 加注必须至少比当前下注多一个大盲注
 		minRaise := g.CurrentBet + g.BigBlind
 		if amount < minRaise {
+			log.Printf("[游戏] 加注金额不足 - 最小加注: %d, 实际加注: %d", minRaise, amount)
 			return false
 		}
 
 		// 检查玩家是否有足够的筹码
 		raiseAmount := amount - player.CurrentBet
 		if raiseAmount > player.Chips {
+			log.Printf("[游戏] 玩家筹码不足以加注 - 需要: %d, 拥有: %d", raiseAmount, player.Chips)
 			return false
 		}
 
@@ -429,14 +442,20 @@ func (g *Game) PlayerAction(userId string, action string, amount int) bool {
 			}
 		}
 	default:
+		log.Printf("[游戏] 无效的行动类型: %s", action)
 		return false
 	}
+
+	// 标记玩家已经行动
+	player.HasActed = true
+	log.Printf("[游戏] 玩家行动成功，移动到下一个玩家")
 
 	// 移动到下一个玩家
 	g.moveToNextPlayer()
 
 	// 检查是否需要进入下一阶段
 	if g.isRoundComplete() {
+		log.Printf("[游戏] 当前轮次结束，进入下一阶段")
 		g.nextPhase()
 	}
 
@@ -446,18 +465,26 @@ func (g *Game) PlayerAction(userId string, action string, amount int) bool {
 // moveToNextPlayer 移动到下一个可以行动的玩家
 func (g *Game) moveToNextPlayer() {
 	startPos := g.CurrentPlayer
+	log.Printf("[游戏] 开始寻找下一个玩家，当前玩家位置: %d", startPos+1)
+
 	for {
 		g.CurrentPlayer = g.getNextActivePlayer(g.CurrentPlayer)
+		log.Printf("[游戏] 找到下一个位置: %d", g.CurrentPlayer+1)
 
 		// 如果回到起始位置或没有找到下一个玩家，说明轮次结束
 		if g.CurrentPlayer == startPos || g.CurrentPlayer == -1 {
 			g.CurrentPlayer = -1
+			log.Printf("[游戏] 轮次结束，没有更多可行动玩家")
 			break
 		}
 
 		player := &g.Players[g.CurrentPlayer]
 		if player.CanAct() && player.Status == PlayerStatusSitting {
+			log.Printf("[游戏] 找到下一个可行动玩家: %s (座位%d)", player.Name, g.CurrentPlayer+1)
 			break
+		} else {
+			log.Printf("[游戏] 玩家 %s (座位%d) 不能行动 - 状态: %s, HasActed: %v",
+				player.Name, g.CurrentPlayer+1, player.Status, player.HasActed)
 		}
 	}
 }
@@ -573,13 +600,16 @@ func (g *Game) showdown() {
 		}
 	}
 
-	// 如果只有一个玩家，直接获胜
+	// 如果只有一个玩家，直接获胜，不显示手牌
 	if len(activePlayers) == 1 {
 		winner := activePlayers[0]
 		winner.Chips += g.Pot
 		winner.WinAmount = g.Pot
+		// 清空手牌，这样就不会显示
+		winner.HoleCards = make([]Card, 0)
+		winner.HandRank = nil
 		log.Printf("[游戏] 玩家 %s 获胜，赢得底池 %d", winner.Name, g.Pot)
-		return // 不立即结束游戏，让前端显示结果
+		return
 	}
 
 	// 启动逐步摊牌流程

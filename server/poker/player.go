@@ -1,5 +1,9 @@
 package poker
 
+import (
+	"log"
+)
+
 // 玩家状态常量
 const (
 	PlayerStatusEmpty   = "empty"   // 空座位
@@ -142,16 +146,24 @@ func (p *Player) PostBlind(amount int) bool {
 func (p *Player) Fold() {
 	p.Status = PlayerStatusFolded
 	p.HasActed = true
+	p.HoleCards = make([]Card, 0) // 清空手牌
+	p.HandRank = nil              // 清空牌型
 }
 
 // CanAct 检查玩家是否可以行动
 func (p *Player) CanAct() bool {
 	// 玩家必须是坐着状态，且没有弃牌或全下
 	if p.Status != PlayerStatusSitting {
+		log.Printf("[玩家] 无法行动 - 状态不是坐着状态: %s", p.Status)
 		return false
 	}
 
 	// 如果玩家已经主动行动过了，就不能再行动
 	// 注意：下盲注不算主动行动
-	return !p.HasActed
+	if p.HasActed {
+		log.Printf("[玩家] 无法行动 - 已经行动过")
+		return false
+	}
+
+	return true
 }

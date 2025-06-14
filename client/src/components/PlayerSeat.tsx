@@ -10,6 +10,18 @@ interface Player {
     rank: number;
   };
   winAmount?: number;
+  status?: string;
+}
+
+// 获取花色符号
+function getSuitSymbol(suit: string): string {
+  switch (suit) {
+    case 'hearts': return '♥';
+    case 'diamonds': return '♦';
+    case 'clubs': return '♣';
+    case 'spades': return '♠';
+    default: return '';
+  }
 }
 
 export default function PlayerSeat({
@@ -161,40 +173,17 @@ export default function PlayerSeat({
               color: (player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "#FFD700" : "#FFD700",
               textShadow: (player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "0 0 10px rgba(255, 215, 0, 0.8)" : "none",
               fontWeight: (player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "bold" : "normal",
+              opacity: player.status === "folded" ? 0.5 : 1,
             }}
           >
-            {(player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "🏆 " : ""}{player.name}
+            {(player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "🏆 " : ""}
+            {player.name}
           </div>
           
           {/* 显示玩家拥有的筹码 */}
           <div className="player-seat-chips">{player.chips}</div>
-          
-          {/* 获胜金额显示 */}
-          {(player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? (
-            <div
-              style={{
-                position: "absolute",
-                top: "-30px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                background: "linear-gradient(135deg, #FFD700, #FFA500)",
-                color: "#000",
-                padding: "4px 8px",
-                borderRadius: "12px",
-                fontSize: "12px",
-                fontWeight: "bold",
-                border: "2px solid #FFD700",
-                whiteSpace: "nowrap",
-                boxShadow: "0 0 15px rgba(255, 215, 0, 0.6)",
-                animation: "winnerPulse 1.5s ease-in-out infinite",
-                zIndex: 5,
-              }}
-            >
-              +{player.winAmount}
-            </div>
-          ) : null}
 
-          {/* 当前下注显示 - 只有当下注大于0时才显示 */}
+          {/* 当前下注显示 */}
           {(gameStatus === "playing" && player.currentBet && player.currentBet > 0) ? (
             <div
               style={{

@@ -39,6 +39,7 @@ func (c *Client) sendGameState() {
 		playersCopy[i] = player
 
 		// 如果不是当前用户且不是摊牌阶段，隐藏手牌
+		// 但如果玩家已经弃牌，则保留其状态信息
 		if player.UserId != c.user.ID && c.hub.game.GamePhase != "showdown" && c.hub.game.GamePhase != "showdown_reveal" {
 			playersCopy[i].HoleCards = make([]poker.Card, len(player.HoleCards))
 			// 保留手牌数量但不显示内容
@@ -369,7 +370,7 @@ func (c *Client) handleStartGame() {
 
 // handlePlayerAction 处理玩家行动消息
 func (c *Client) handlePlayerAction(action string, data interface{}) {
-	log.Printf("[WS] 处理玩家行动 - %s, 行动: %s\n", c.user, action)
+	log.Printf("[WS] 开始处理玩家行动 - 玩家: %s, 行动: %s\n", c.user, action)
 
 	// 解析行动数据
 	amount := 0
@@ -382,6 +383,7 @@ func (c *Client) handlePlayerAction(action string, data interface{}) {
 	}
 
 	// 检查游戏状态
+	log.Printf("[WS] 当前游戏状态: %s", c.hub.game.GameStatus)
 	if c.hub.game.GameStatus != "playing" {
 		c.sendError("游戏未开始")
 		return
@@ -396,6 +398,8 @@ func (c *Client) handlePlayerAction(action string, data interface{}) {
 		}
 	}
 
+	log.Printf("[WS] 玩家位置: %d, 当前行动玩家: %d", playerPos+1, c.hub.game.CurrentPlayer+1)
+
 	if playerPos == -1 {
 		c.sendError("您未在游戏中")
 		return
@@ -408,9 +412,11 @@ func (c *Client) handlePlayerAction(action string, data interface{}) {
 	}
 
 	player := &c.hub.game.Players[playerPos]
+	log.Printf("[WS] 玩家状态: %s, HasActed: %v", player.Status, player.HasActed)
 
 	// 检查玩家是否可以行动
 	if !player.CanAct() {
+		log.Printf("[WS] 玩家无法行动 - 状态: %s, HasActed: %v", player.Status, player.HasActed)
 		c.sendError("您当前无法行动")
 		return
 	}
@@ -418,6 +424,9 @@ func (c *Client) handlePlayerAction(action string, data interface{}) {
 	// 验证具体行动
 	var errorMsg string
 	switch action {
+	case "fold":
+		// 弃牌不需要验证
+		log.Printf("[游戏] 玩家 %s (座位%d) 准备弃牌", player.Name, playerPos+1)
 	case "call":
 		callAmount := c.hub.game.CurrentBet - player.CurrentBet
 		if callAmount > player.Chips {
@@ -437,6 +446,8 @@ func (c *Client) handlePlayerAction(action string, data interface{}) {
 				errorMsg = "筹码不足以加注"
 			}
 		}
+	default:
+		errorMsg = "无效的行动"
 	}
 
 	if errorMsg != "" {
@@ -445,6 +456,7 @@ func (c *Client) handlePlayerAction(action string, data interface{}) {
 	}
 
 	// 调用游戏逻辑处理玩家行动
+	log.Printf("[WS] 准备调用游戏逻辑 - 玩家: %s, 行动: %s", player.Name, action)
 	success := c.hub.game.PlayerAction(c.user.ID, action, amount)
 
 	if !success {
@@ -453,7 +465,12 @@ func (c *Client) handlePlayerAction(action string, data interface{}) {
 		return
 	}
 
-	log.Printf("[WS] 玩家行动成功 - %s, 行动: %s, 金额: %d\n", c.user, action, amount)
+	// 记录成功的行动
+	if action == "fold" {
+		log.Printf("[游戏] 玩家 %s (座位%d) 弃牌成功", player.Name, playerPos+1)
+	} else {
+		log.Printf("[WS] 玩家行动成功 - %s, 行动: %s, 金额: %d\n", c.user, action, amount)
+	}
 
 	// 广播游戏状态更新
 	c.hub.broadcastGameState()

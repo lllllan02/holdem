@@ -19,6 +19,7 @@ const convertWSPlayerToLocal = (wsPlayer: WSPlayer, _: number) => {
     holeCards: wsPlayer.holeCards || [],
     handRank: wsPlayer.handRank,
     winAmount: wsPlayer.winAmount,
+    status: wsPlayer.status,
   };
 };
 
