@@ -467,26 +467,45 @@ func (g *Game) moveToNextPlayer() {
 	startPos := g.CurrentPlayer
 	log.Printf("[游戏] 开始寻找下一个玩家，当前玩家位置: %d", startPos+1)
 
-	for {
-		g.CurrentPlayer = g.getNextActivePlayer(g.CurrentPlayer)
-		log.Printf("[游戏] 找到下一个位置: %d", g.CurrentPlayer+1)
-
-		// 如果回到起始位置或没有找到下一个玩家，说明轮次结束
-		if g.CurrentPlayer == startPos || g.CurrentPlayer == -1 {
-			g.CurrentPlayer = -1
-			log.Printf("[游戏] 轮次结束，没有更多可行动玩家")
-			break
-		}
-
-		player := &g.Players[g.CurrentPlayer]
-		if player.CanAct() && player.Status == PlayerStatusSitting {
-			log.Printf("[游戏] 找到下一个可行动玩家: %s (座位%d)", player.Name, g.CurrentPlayer+1)
-			break
-		} else {
-			log.Printf("[游戏] 玩家 %s (座位%d) 不能行动 - 状态: %s, HasActed: %v",
-				player.Name, g.CurrentPlayer+1, player.Status, player.HasActed)
+	// 计算活跃玩家数量
+	activePlayers := 0
+	for _, player := range g.Players {
+		if !player.IsEmpty() && player.Status != PlayerStatusFolded {
+			activePlayers++
 		}
 	}
+
+	// 如果只剩一个活跃玩家，直接进入摊牌阶段
+	if activePlayers <= 1 {
+		g.CurrentPlayer = -1
+		log.Printf("[游戏] 只剩一个活跃玩家，准备进入摊牌阶段")
+		return
+	}
+
+	// 寻找下一个可以行动的玩家
+	for i := 1; i <= len(g.Players); i++ {
+		nextPos := (startPos + i) % len(g.Players)
+		player := &g.Players[nextPos]
+
+		// 跳过空座位和已弃牌的玩家
+		if player.IsEmpty() || player.Status == PlayerStatusFolded {
+			continue
+		}
+
+		// 检查玩家是否可以行动
+		if player.CanAct() {
+			g.CurrentPlayer = nextPos
+			log.Printf("[游戏] 找到下一个可行动玩家: %s (座位%d)", player.Name, nextPos+1)
+			return
+		} else {
+			log.Printf("[游戏] 玩家 %s (座位%d) 不能行动 - 状态: %s, HasActed: %v",
+				player.Name, nextPos+1, player.Status, player.HasActed)
+		}
+	}
+
+	// 如果没有找到可以行动的玩家，说明本轮结束
+	g.CurrentPlayer = -1
+	log.Printf("[游戏] 本轮结束，没有更多可行动玩家")
 }
 
 // isRoundComplete 检查当前轮次是否完成

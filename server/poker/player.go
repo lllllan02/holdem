@@ -107,7 +107,6 @@ func (p *Player) ResetForNewRound() {
 	p.HasActed = false
 	p.HandRank = nil
 	p.WinAmount = 0
-	p.IsReady = false
 }
 
 // Bet 玩家下注
