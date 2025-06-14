@@ -40,6 +40,7 @@ const SEAT_POSITIONS = [
 ];
 
 interface Player {
+  userId: string;
   name: string;
   chips: number;
   currentBet?: number;
@@ -405,11 +406,14 @@ export default function PokerTable({
                 player={player}
                 seat={pos.seat}
                 gameStatus={gameStatus}
+                gamePhase={gamePhase}
                 isDealer={isDealer}
                 isSmallBlind={isSmallBlind}
                 isBigBlind={isBigBlind}
                 isCurrentPlayer={isCurrentPlayerTurn}
+                isCurrentUser={isCurrentUserSeat}
                 onSit={() => onSit?.(pos.seat)}
+                onLeave={() => onLeave?.(pos.seat)}
                 isEmpty={!player}
                 seatNumber={pos.seat}
                 style={{
@@ -598,45 +602,6 @@ export default function PokerTable({
                       </div>
                     )}
                 </div>
-              )}
-
-              {/* 如果是当前用户的座位，显示离开按钮 */}
-              {isCurrentUserSeat && gameStatus === "waiting" && (
-                <button
-                  onClick={() => onLeave?.(pos.seat)}
-                  style={{
-                    position: "absolute",
-                    // 所有按钮都朝向桌子中心内侧
-                    left:
-                      pos.seat.includes("1") || pos.seat.includes("2")
-                        ? px + 50 // 左侧座位：按钮在右侧（朝内）
-                        : pos.seat.includes("6") || pos.seat.includes("7")
-                        ? px - 50 // 右侧座位：按钮在左侧（朝内）
-                        : px, // 上方座位：按钮在中间
-                    top:
-                      pos.seat.includes("3") ||
-                      pos.seat.includes("4") ||
-                      pos.seat.includes("5")
-                        ? py + 50 // 上方座位：按钮在下方（朝内）
-                        : py, // 左右座位：按钮在中间
-                    transform: "translate(-50%, -50%)",
-                    // 左侧座位的按钮竖着显示
-                    writingMode:
-                      pos.seat.includes("1") || pos.seat.includes("2")
-                        ? ("vertical-rl" as const)
-                        : ("horizontal-tb" as const),
-                    zIndex: 3,
-                    padding: "4px 8px",
-                    fontSize: "12px",
-                    backgroundColor: "#ff4444",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  离开
-                </button>
               )}
             </React.Fragment>
           );

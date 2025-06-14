@@ -31,15 +31,28 @@ export function getSuitSymbol(suit: string): string {
   }
 }
 
+// 在文件顶部添加样式
+const hoverStyle = `
+  .hover-overlay {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .hover-overlay:hover {
+    opacity: 1 !important;
+  }
+`;
+
 export default function PlayerSeat({
   player,
   seat,
   style = {},
   gameStatus = "waiting",
+  gamePhase = "",
   isDealer = false,
   isSmallBlind = false,
   isBigBlind = false,
   isCurrentPlayer = false,
+  isCurrentUser = false,
   onSit,
   isEmpty,
   onLeave,
@@ -49,10 +62,12 @@ export default function PlayerSeat({
   seat: string;
   style?: React.CSSProperties;
   gameStatus?: string;
+  gamePhase?: string;
   isDealer?: boolean;
   isSmallBlind?: boolean;
   isBigBlind?: boolean;
   isCurrentPlayer?: boolean;
+  isCurrentUser?: boolean;
   onSit?: () => void;
   isEmpty: boolean;
   onLeave?: () => void;
@@ -69,7 +84,7 @@ export default function PlayerSeat({
     }
   }, [gameStatus, player, isEmpty, seatNumber]);
 
-  const canSit = isEmpty && gameStatus === "waiting";
+  const canSit = isEmpty && (gameStatus === "waiting" || gamePhase === "showdown");
 
   // 调试信息
   if (!isEmpty && player && (isSmallBlind || isBigBlind)) {
@@ -86,26 +101,105 @@ export default function PlayerSeat({
         cursor: canSit ? "pointer" : "default",
         opacity: isEmpty && gameStatus === "playing" ? 0.5 : 1,
         position: "absolute",
-        width: "80px",
-        height: "120px",
+        width: "140px",
+        height: "200px",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "4px",
         background: "transparent",
         border: "none",
       }}
       onClick={canSit ? onSit : undefined}
     >
-      {/* 头像圆圈 */}
+      {/* 顶部标记区域 */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "24px",
+          display: "flex",
+          justifyContent: "center",
+          gap: "4px",
+          padding: "0 4px",
+        }}
+      >
+        {/* 盲注标记 */}
+        {(isSmallBlind || isBigBlind) && !isEmpty && (
+          <>
+            {isSmallBlind && (
+              <div
+                style={{
+                  background: "#4CAF50",
+                  color: "white",
+                  borderRadius: "4px",
+                  padding: "2px 6px",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}
+              >
+                小盲
+              </div>
+            )}
+            {isBigBlind && (
+              <div
+                style={{
+                  background: "#2196F3",
+                  color: "white",
+                  borderRadius: "4px",
+                  padding: "2px 6px",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}
+              >
+                大盲
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Dealer 标记 */}
+      {isDealer && !isEmpty && (
+        <div
+          style={{
+            position: "absolute",
+            top: "4px",
+            right: "4px",
+            background: "#FFD700",
+            color: "#000",
+            borderRadius: "50%",
+            width: "24px",
+            height: "24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "14px",
+            fontWeight: "bold",
+            border: "2px solid #FFA500",
+            zIndex: 3,
+          }}
+        >
+          D
+        </div>
+      )}
+
+      {/* 头像区域 */}
+      <style>{hoverStyle}</style>
       <div
         style={{
           position: "relative",
           width: "80px",
           height: "80px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          marginTop: "28px",
+          cursor: !isEmpty && isCurrentUser && (gameStatus === "waiting" || gamePhase === "showdown") ? "pointer" : "default",
+        }}
+        onClick={(e) => {
+          if (!isEmpty && isCurrentUser && (gameStatus === "waiting" || gamePhase === "showdown")) {
+            e.stopPropagation();
+            onLeave?.();
+          }
         }}
       >
         <div
@@ -124,16 +218,43 @@ export default function PlayerSeat({
           }}
         >
           {!isEmpty && player && (
-            <img
-              src={`/api/avatar/${player.userId}`}
-              alt={player.name}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                opacity: player.status === "folded" ? 0.5 : 1,
-              }}
-            />
+            <>
+              <img
+                src={`/api/avatar/${player.userId}`}
+                alt={player.name}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  opacity: player.status === "folded" ? 0.5 : 1,
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = "/default-avatar.svg";
+                }}
+              />
+              {/* 可离座时显示提示 - 只在当前用户的座位上显示 */}
+              {(gameStatus === "waiting" || gamePhase === "showdown") && isCurrentUser && (
+                <div
+                  className="hover-overlay"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "rgba(0, 0, 0, 0.5)",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "12px",
+                  }}
+                >
+                  点击离座
+                </div>
+              )}
+            </>
           )}
           {isEmpty && (
             <div 
@@ -147,13 +268,13 @@ export default function PlayerSeat({
                 whiteSpace: "nowrap",
               }}
             >
-              {gameStatus === "playing" ? "游戏中" : "点击落座"}
+              {gameStatus === "playing" && gamePhase !== "showdown" ? "游戏中" : "点击落座"}
             </div>
           )}
         </div>
       </div>
 
-      {/* 信息框 */}
+      {/* 用户信息区域 */}
       {!isEmpty && player && (
         <div
           style={{
@@ -162,13 +283,14 @@ export default function PlayerSeat({
             padding: "4px 8px",
             textAlign: "center",
             border: "1px solid #666",
-            width: "100%",
+            width: "100px",
+            marginTop: "8px",
           }}
         >
           <div
             style={{
               color: "#FFD700",
-              fontSize: "12px",
+              fontSize: "14px",
               fontWeight: "bold",
               opacity: player.status === "folded" ? 0.5 : 1,
             }}
@@ -178,11 +300,32 @@ export default function PlayerSeat({
           <div
             style={{
               color: "#fff",
-              fontSize: "11px",
+              fontSize: "12px",
+              marginTop: "2px",
             }}
           >
             {player.chips}
           </div>
+        </div>
+      )}
+
+      {/* 准备状态 */}
+      {!isEmpty && gameStatus === "waiting" && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "8px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: player?.isReady ? "#4CAF50" : "#FFA000",
+            color: "white",
+            padding: "2px 12px",
+            borderRadius: "4px",
+            fontSize: "12px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {player?.isReady ? "已准备" : "未准备"}
         </div>
       )}
 
@@ -191,7 +334,7 @@ export default function PlayerSeat({
         <div
           style={{
             position: "absolute",
-            top: "100%",
+            bottom: "-25px",
             left: "50%",
             transform: "translateX(-50%)",
             background: "rgba(0, 0, 0, 0.7)",
@@ -199,99 +342,10 @@ export default function PlayerSeat({
             padding: "2px 6px",
             borderRadius: "4px",
             fontSize: "12px",
-            marginTop: "4px",
+            zIndex: 2,
           }}
         >
           {player.currentBet}
-        </div>
-      )}
-
-      {/* Dealer 标记 */}
-      {isDealer && !isEmpty && (
-        <div
-          style={{
-            position: "absolute",
-            top: "-10px",
-            right: "-10px",
-            background: "#FFD700",
-            color: "#000",
-            borderRadius: "50%",
-            width: "20px",
-            height: "20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "12px",
-            fontWeight: "bold",
-            border: "2px solid #FFA500",
-            zIndex: 3,
-          }}
-        >
-          D
-        </div>
-      )}
-
-      {/* 盲注标记 */}
-      {isSmallBlind && !isEmpty && (
-        <div
-          style={{
-            position: "absolute",
-            top: "-8px",
-            left: isBigBlind ? "-35px" : "-8px",
-            background: "#4CAF50",
-            color: "white",
-            borderRadius: "4px",
-            padding: "2px 6px",
-            fontSize: "10px",
-            fontWeight: "bold",
-            whiteSpace: "nowrap",
-            zIndex: 2,
-          }}
-        >
-          小盲
-        </div>
-      )}
-
-      {isBigBlind && !isEmpty && (
-        <div
-          style={{
-            position: "absolute",
-            top: "-8px",
-            left: isSmallBlind ? "20px" : "-8px",
-            background: "#2196F3",
-            color: "white",
-            borderRadius: "4px",
-            padding: "2px 6px",
-            fontSize: "10px",
-            fontWeight: "bold",
-            whiteSpace: "nowrap",
-            zIndex: 2,
-          }}
-        >
-          大盲
-        </div>
-      )}
-
-      {/* 离开按钮 */}
-      {!isEmpty && gameStatus === "waiting" && onLeave && (
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            onLeave();
-          }}
-          style={{
-            position: "absolute",
-            bottom: "-20px",
-            right: "0",
-            background: "#F44336",
-            color: "white",
-            padding: "2px 8px",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontSize: "12px",
-          }}
-        >
-          离开
         </div>
       )}
     </div>

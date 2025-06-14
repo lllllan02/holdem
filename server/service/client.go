@@ -187,8 +187,8 @@ func (c *Client) handleClientMessage(message WSMessage) {
 
 // handleSitDown 处理落座请求
 func (c *Client) handleSitDown(data interface{}) {
-	// 检查游戏状态，游戏进行中不允许新玩家落座
-	if c.hub.game.GameStatus == "playing" {
+	// 检查游戏状态，只有在等待状态或摊牌阶段才允许新玩家落座
+	if c.hub.game.GameStatus != "waiting" && c.hub.game.GamePhase != "showdown" {
 		log.Printf("[WS] 游戏进行中不允许落座 - %s\n", c.user)
 
 		// 发送错误消息给客户端
@@ -259,8 +259,8 @@ func (c *Client) handleSitDown(data interface{}) {
 
 // handleLeaveSeat 处理离开座位请求
 func (c *Client) handleLeaveSeat(data interface{}) {
-	// 检查游戏状态，游戏进行中不允许离座
-	if c.hub.game.GameStatus == "playing" {
+	// 检查游戏状态，只有在等待状态或摊牌阶段才允许离座
+	if c.hub.game.GameStatus != "waiting" && c.hub.game.GamePhase != "showdown" {
 		log.Printf("[WS] 游戏进行中不允许离座 - %s\n", c.user)
 
 		// 发送错误消息给客户端
