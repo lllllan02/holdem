@@ -358,7 +358,6 @@ export default function PokerTable({
                 player={player}
                 seat={pos.seat}
                 gameStatus={gameStatus}
-                gamePhase={gamePhase}
                 isDealer={isDealer}
                 isSmallBlind={isSmallBlind}
                 isBigBlind={isBigBlind}
@@ -385,11 +384,6 @@ export default function PokerTable({
                   alignItems: 'center',
                   gap: '8px',
                   zIndex: 3,
-                  // 获胜者动画效果
-                  ...(player.winAmount && player.winAmount > 0 && gamePhase === "showdown" ? {
-                    animation: "winnerGlow 2s ease-in-out infinite",
-                    filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.8))",
-                  } : {}),
                 }}>
                   {/* 手牌或弃牌标签 */}
                   {player && player.status === "folded" ? (
@@ -459,19 +453,18 @@ export default function PokerTable({
                   {((gamePhase === "showdown_reveal" && shouldShowCard(seatIndex)) || gamePhase === "showdown") && player.handRank && player.status !== "folded" && (
                     <div
                       style={{
-                        background: player.winAmount && player.winAmount > 0 ? "rgba(255, 215, 0, 0.9)" : "rgba(76, 175, 80, 0.9)",
-                        color: player.winAmount && player.winAmount > 0 ? "#000" : "white",
+                        background: "rgba(76, 175, 80, 0.9)",
+                        color: "white",
                         padding: "4px 8px",
                         borderRadius: "12px",
                         fontSize: "12px",
                         fontWeight: "bold",
                         whiteSpace: "nowrap",
-                        boxShadow: player.winAmount && player.winAmount > 0 ? "0 0 15px rgba(255, 215, 0, 0.8)" : "0 2px 6px rgba(0,0,0,0.3)",
-                        border: player.winAmount && player.winAmount > 0 ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.3)",
-                        animation: player.winAmount && player.winAmount > 0 ? "winnerPulse 1.5s ease-in-out infinite" : "none",
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                        border: "1px solid rgba(255,255,255,0.3)",
                       }}
                     >
-                      {player.winAmount && player.winAmount > 0 ? "🏆 " : ""}{getHandName(player.handRank.rank)}
+                      {getHandName(player.handRank.rank)}
                     </div>
                   )}
                 </div>

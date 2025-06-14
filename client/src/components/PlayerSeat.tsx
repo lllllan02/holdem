@@ -14,7 +14,7 @@ interface Player {
 }
 
 // 获取花色符号
-function getSuitSymbol(suit: string): string {
+export function getSuitSymbol(suit: string): string {
   switch (suit) {
     case 'hearts': return '♥';
     case 'diamonds': return '♦';
@@ -29,7 +29,6 @@ export default function PlayerSeat({
   seat,
   style = {},
   gameStatus = "waiting",
-  gamePhase = "",
   isDealer = false,
   isSmallBlind = false,
   isBigBlind = false,
@@ -40,7 +39,6 @@ export default function PlayerSeat({
   seat: string;
   style?: React.CSSProperties;
   gameStatus?: string;
-  gamePhase?: string;
   isDealer?: boolean;
   isSmallBlind?: boolean;
   isBigBlind?: boolean;
@@ -64,13 +62,9 @@ export default function PlayerSeat({
         ...style,
         cursor: canSit ? "pointer" : "default",
         opacity: isEmpty && gameStatus === "playing" ? 0.5 : 1,
-        boxShadow: isCurrentPlayer ? "0 0 15px #FFD700" : 
-                   (!isEmpty && player?.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "0 0 20px rgba(255, 215, 0, 0.9)" : "none",
-        border: isCurrentPlayer ? "3px solid #FFD700" : 
-                (!isEmpty && player?.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "3px solid #FFD700" : "2px solid #666",
-        animation: (!isEmpty && player?.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "winnerPulse 1.5s ease-in-out infinite" : "none",
-        background: (!isEmpty && player?.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "rgba(255, 215, 0, 0.2)" : 
-                   isEmpty ? "rgba(60,60,70,0.6)" : "rgba(255, 215, 0, 0.1)",
+        boxShadow: isCurrentPlayer ? "0 0 15px #FFD700" : "none",
+        border: isCurrentPlayer ? "3px solid #FFD700" : "2px solid #666",
+        background: isEmpty ? "rgba(60,60,70,0.6)" : "rgba(255, 215, 0, 0.1)",
       }}
       onClick={canSit ? onSit : undefined}
     >
@@ -170,40 +164,20 @@ export default function PlayerSeat({
           <div 
             className="player-seat-name"
             style={{
-              color: (player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "#FFD700" : "#FFD700",
-              textShadow: (player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "0 0 10px rgba(255, 215, 0, 0.8)" : "none",
-              fontWeight: (player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "bold" : "normal",
+              color: "#FFD700",
               opacity: player.status === "folded" ? 0.5 : 1,
             }}
           >
-            {(player.winAmount && player.winAmount > 0 && gamePhase === "showdown") ? "🏆 " : ""}
             {player.name}
           </div>
-          
-          {/* 显示玩家拥有的筹码 */}
-          <div className="player-seat-chips">{player.chips}</div>
-
-          {/* 当前下注显示 */}
-          {(gameStatus === "playing" && player.currentBet && player.currentBet > 0) ? (
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-25px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                background: "rgba(255, 215, 0, 0.9)",
-                color: "#000",
-                padding: "2px 8px",
-                borderRadius: "10px",
-                fontSize: "12px",
-                fontWeight: "bold",
-                border: "1px solid #FFD700",
-                whiteSpace: "nowrap",
-              }}
-            >
-              下注: {player.currentBet}
+          <div className="player-seat-chips">
+            {player.chips}
+          </div>
+          {player.currentBet && player.currentBet > 0 && (
+            <div className="player-bet-amount">
+              {player.currentBet}
             </div>
-          ) : null}
+          )}
         </>
       )}
     </div>

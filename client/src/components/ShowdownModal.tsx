@@ -130,12 +130,33 @@ export default function ShowdownModal({ players, pot, onNewGame, communityCards 
                   gap: '15px'
                 }}>
                   <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                     fontSize: '16px',
                     fontWeight: 'bold',
                     color: netChange > 0 ? "#4CAF50" : netChange < 0 ? "#F44336" : "white",
                     minWidth: '100px'
                   }}>
                     {player.name}
+                    {netChange > 0 && (
+                      <div style={{
+                        background: "#FFD700",
+                        color: "#000",
+                        borderRadius: "50%",
+                        width: "20px",
+                        height: "20px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                        border: "2px solid #FFA500",
+                        boxShadow: "0 0 10px rgba(255, 215, 0, 0.5)",
+                      }}>
+                        🏆
+                      </div>
+                    )}
                   </div>
                   
                   <div style={{
@@ -213,7 +234,7 @@ export default function ShowdownModal({ players, pot, onNewGame, communityCards 
                     </div>
                   ) : player.handRank && (
                     <div style={{
-                      background: "rgba(76, 175, 80, 0.6)",
+                      background: netChange > 0 ? "rgba(76, 175, 80, 0.8)" : "rgba(76, 175, 80, 0.6)",
                       color: "white",
                       padding: "4px 12px",
                       borderRadius: "15px",
