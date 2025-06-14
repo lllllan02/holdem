@@ -74,6 +74,24 @@ function App() {
     }
   };
 
+  // 更新用户头像
+  const updateUserAvatar = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await fetch("/api/user/avatar", {
+        method: "PUT",
+        body: formData,
+      });
+      const data = await response.json();
+      setUser(data);
+    } catch (error) {
+      console.error("Failed to update user avatar:", error);
+      setErrorMessage("更新头像失败，请重试");
+    }
+  };
+
   // 清除错误消息
   const clearError = () => {
     setErrorMessage(null);
@@ -439,7 +457,11 @@ function App() {
         onSit={handleSit}
         onLeave={handleLeave}
       />
-      <UserInfoCompact user={user} onUpdateName={updateUserName} />
+      <UserInfoCompact 
+        user={user} 
+        onUpdateName={updateUserName} 
+        onUpdateAvatar={updateUserAvatar}
+      />
 
       {/* 倒计时显示 - 使用flexbox居中 */}
       {canShowReadyButton() &&

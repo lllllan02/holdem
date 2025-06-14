@@ -1,10 +1,13 @@
 package service
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -79,7 +82,17 @@ func init() {
 func GetUserID(ip, userAgent string) string {
 	// 规范化 IP 地址以确保一致性
 	normalizedIP := normalizeIP(ip)
-	return fmt.Sprintf("%s:%s", normalizedIP, userAgent)
+	// 生成完整的标识字符串
+	fullID := fmt.Sprintf("%s:%s", normalizedIP, userAgent)
+
+	// 使用 MD5 生成哈希
+	hasher := md5.New()
+	hasher.Write([]byte(fullID))
+	hash := hasher.Sum(nil)
+
+	// 只取前8位作为短ID
+	shortID := hex.EncodeToString(hash)[:8]
+	return shortID
 }
 
 // normalizeIP 规范化 IP 地址
@@ -208,4 +221,34 @@ func saveUsers() {
 	if data, err := json.MarshalIndent(users, "", "  "); err == nil {
 		os.WriteFile(dataFile, data, 0644)
 	}
+}
+
+// GetUserAvatar 获取用户头像文件路径
+func GetUserAvatar(userId string) (string, error) {
+	// 获取项目根目录
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Printf("[Service] GetUserAvatar - 获取工作目录失败: %v", err)
+		return "", fmt.Errorf("failed to get working directory: %v", err)
+	}
+
+	// 如果当前在 server 目录，需要回到项目根目录
+	if strings.HasSuffix(currentDir, "server") {
+		currentDir = filepath.Dir(currentDir)
+	} else if strings.HasSuffix(currentDir, "service") {
+		currentDir = filepath.Dir(filepath.Dir(currentDir))
+	}
+
+	// 尝试不同的文件扩展名
+	extensions := []string{".jpg", ".jpeg", ".png", ".gif", ".webp"}
+	userDir := filepath.Join(currentDir, "uploads", "avatars", userId)
+
+	for _, ext := range extensions {
+		avatarPath := filepath.Join(userDir, "avatar"+ext)
+		if _, err := os.Stat(avatarPath); err == nil {
+			return avatarPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("avatar not found")
 }
