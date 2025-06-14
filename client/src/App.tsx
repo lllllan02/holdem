@@ -555,26 +555,35 @@ function App() {
             position: "fixed",
             top: "50%",
             left: "50%",
-            transform: "translate(-50%, 80px)",
+            transform: "translate(-50%, 120px)",
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "20px",
             zIndex: 10,
           }}
         >
           <button
             onClick={handleFold}
             style={{
-              padding: "12px 20px",
-              fontSize: "14px",
+              padding: "14px 36px",
+              fontSize: "16px",
               fontWeight: "bold",
-              backgroundColor: "#dc3545",
+              backgroundColor: "#dc2626",
               color: "white",
               border: "none",
-              borderRadius: "8px",
+              borderRadius: "12px",
               cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-              minWidth: "80px",
+              boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+              minWidth: "120px",
+              transition: "all 0.2s ease",
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.boxShadow = "0 6px 8px rgba(0,0,0,0.15)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 4px 6px rgba(0,0,0,0.1)";
             }}
           >
             弃牌
@@ -584,16 +593,25 @@ function App() {
             <button
               onClick={handleCheck}
               style={{
-                padding: "12px 20px",
-                fontSize: "14px",
+                padding: "14px 36px",
+                fontSize: "16px",
                 fontWeight: "bold",
-                backgroundColor: "#28a745",
+                backgroundColor: "#2563eb",
                 color: "white",
                 border: "none",
-                borderRadius: "8px",
+                borderRadius: "12px",
                 cursor: "pointer",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                minWidth: "80px",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                minWidth: "120px",
+                transition: "all 0.2s ease",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 6px 8px rgba(0,0,0,0.15)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 6px rgba(0,0,0,0.1)";
               }}
             >
               过牌
@@ -602,16 +620,25 @@ function App() {
             <button
               onClick={handleCall}
               style={{
-                padding: "12px 20px",
-                fontSize: "14px",
+                padding: "14px 36px",
+                fontSize: "16px",
                 fontWeight: "bold",
-                backgroundColor: "#007bff",
+                backgroundColor: "#2563eb",
                 color: "white",
                 border: "none",
-                borderRadius: "8px",
+                borderRadius: "12px",
                 cursor: "pointer",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                minWidth: "80px",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                minWidth: "120px",
+                transition: "all 0.2s ease",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 6px 8px rgba(0,0,0,0.15)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 6px rgba(0,0,0,0.1)";
               }}
             >
               跟注 {getCallAmount()}
@@ -621,16 +648,25 @@ function App() {
           <button
             onClick={handleRaise}
             style={{
-              padding: "12px 20px",
-              fontSize: "14px",
+              padding: "14px 36px",
+              fontSize: "16px",
               fontWeight: "bold",
-              backgroundColor: "#fd7e14",
+              backgroundColor: "#f97316",
               color: "white",
               border: "none",
-              borderRadius: "8px",
+              borderRadius: "12px",
               cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-              minWidth: "80px",
+              boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+              minWidth: "120px",
+              transition: "all 0.2s ease",
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.boxShadow = "0 6px 8px rgba(0,0,0,0.15)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 4px 6px rgba(0,0,0,0.1)";
             }}
           >
             加注

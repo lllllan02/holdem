@@ -171,7 +171,7 @@ export default function PokerTable({
           style={{
             position: "absolute",
             left: "50%",
-            top: "38%",
+            top: "32%",
             transform: "translate(-50%, 0)",
             display: "flex",
             gap: "16px",
@@ -185,7 +185,7 @@ export default function PokerTable({
           style={{
             position: "absolute",
             left: "50%",
-            top: "30%",
+            top: "25%",
             transform: "translate(-50%, -50%)",
             width: "200px",
             height: "100px",
@@ -205,21 +205,24 @@ export default function PokerTable({
               position: "absolute",
               left: "50%",
               top: "60%",
-              transform: "translate(-50%, -50%)",
+              transform: "translate(-50%, 0)",
               background: "rgba(255, 215, 0, 0.9)",
               color: "#000",
-              padding: "8px 16px",
-              borderRadius: "20px",
+              padding: "10px 24px",
+              borderRadius: "24px",
               fontSize: "16px",
               fontWeight: "bold",
               border: "2px solid #FFD700",
               boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+              whiteSpace: "nowrap",
+              zIndex: 10,
             }}
           >
             底池: {pot}
           </div>
         )}
-        {/* 玩家座位放到桌沿外圈，手牌放到桌面内圈 */}
+
+                    {/* 玩家座位放到桌沿外圈，手牌放到桌面内圈 */}
         {SEAT_POSITIONS.map((pos, i) => {
           // 重新设计整齐的布局
           let px, py;
@@ -416,8 +419,8 @@ export default function PokerTable({
                             style={{
                               width: '36px',
                               height: '50px',
-                              background: (isCurrentUser || (gamePhase === "showdown_reveal" && shouldShowCard(seatIndex)) || gamePhase === "showdown") && card.suit ? 'white' : '#2d3748',
-                              border: '1px solid #4a5568',
+                              background: (isCurrentUser || (gamePhase === "showdown_reveal" && shouldShowCard(seatIndex)) || gamePhase === "showdown") && card.suit ? 'white' : 'rgba(45, 55, 72, 0.8)',
+                              border: (isCurrentUser || (gamePhase === "showdown_reveal" && shouldShowCard(seatIndex)) || gamePhase === "showdown") && card.suit ? '1px solid rgba(0, 0, 0, 0.1)' : '1px solid rgba(74, 85, 104, 0.2)',
                               borderRadius: '5px',
                               display: 'flex',
                               flexDirection: 'column',
@@ -425,7 +428,9 @@ export default function PokerTable({
                               justifyContent: 'center',
                               fontSize: '12px',
                               fontWeight: 'bold',
-                              boxShadow: '0 3px 6px rgba(0,0,0,0.4)',
+                              boxShadow: (isCurrentUser || (gamePhase === "showdown_reveal" && shouldShowCard(seatIndex)) || gamePhase === "showdown") && card.suit
+                                ? '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.08)'
+                                : '0 2px 4px rgba(0, 0, 0, 0.2)',
                             }}
                           >
                             {(() => {
