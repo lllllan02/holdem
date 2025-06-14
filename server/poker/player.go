@@ -98,9 +98,7 @@ func (p *Player) SitDown(userId, name string) {
 
 // ResetForNewRound 为新一轮游戏重置玩家状态
 func (p *Player) ResetForNewRound() {
-	if p.Status == PlayerStatusSitting || p.Status == PlayerStatusFolded || p.Status == PlayerStatusAllIn {
-		p.Status = PlayerStatusSitting
-	}
+	// 不重置玩家状态，保持原有状态直到下一局开始
 	p.HoleCards = make([]Card, 0, 2)
 	p.CurrentBet = 0
 	p.TotalBet = 0

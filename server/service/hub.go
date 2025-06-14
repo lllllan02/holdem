@@ -160,6 +160,12 @@ func (h *Hub) startCountdown() {
 		log.Printf("[Hub] 停止之前的倒计时")
 	}
 
+	// 检查是否可以开始游戏
+	if !h.game.CanStartGame() {
+		log.Printf("[Hub] 无法开始倒计时 - 不满足开始游戏条件")
+		return
+	}
+
 	log.Printf("[Hub] 开始倒计时，初始值: 3")
 	h.game.CountdownTimer = 3
 	h.broadcastGameState()
@@ -189,11 +195,18 @@ func (h *Hub) startCountdown() {
 				h.broadcastGameState()
 
 				if h.game.CountdownTimer <= 0 {
-					// 倒计时结束，开始游戏
-					log.Printf("[Hub] 倒计时结束，开始游戏")
-					h.game.CountdownTimer = -1 // 设置为-1表示倒计时已结束
-					if h.game.StartGame() {
-						log.Printf("[Hub] 游戏自动开始成功")
+					// 倒计时结束，再次检查是否可以开始游戏
+					if h.game.CanStartGame() {
+						log.Printf("[Hub] 倒计时结束，开始游戏")
+						h.game.CountdownTimer = -1 // 设置为-1表示倒计时已结束
+						if h.game.StartGame() {
+							log.Printf("[Hub] 游戏自动开始成功")
+						} else {
+							log.Printf("[Hub] 游戏自动开始失败")
+						}
+					} else {
+						log.Printf("[Hub] 倒计时结束，但不满足开始游戏条件")
+						h.game.CountdownTimer = -1 // 设置为-1表示倒计时已结束
 					}
 					h.broadcastGameState()
 					return

@@ -532,10 +532,24 @@ func (c *Client) handleReady() {
 	if c.hub.game.SetPlayerReady(c.user.ID, true) {
 		log.Printf("[WS] 玩家准备成功 - %s", c.user)
 
-		// 检查是否所有玩家都已准备
-		if c.hub.game.CheckAllPlayersReady() {
+		// 获取当前准备的玩家数量
+		readyCount, totalCount := c.hub.game.GetReadyPlayersCount()
+		log.Printf("[WS] 当前准备状态：总玩家数=%d，已准备玩家数=%d", totalCount, readyCount)
+
+		// 检查是否所有玩家都已准备，且至少有2个玩家
+		if totalCount >= 2 && readyCount == totalCount {
 			log.Printf("[WS] 所有玩家已准备，开始倒计时")
-			c.hub.startCountdown()
+			// 如果在摊牌阶段，直接开始倒计时
+			if c.hub.game.GamePhase == "showdown" {
+				c.hub.startCountdown()
+			} else {
+				// 否则检查是否可以开始游戏
+				if c.hub.game.CanStartGame() {
+					c.hub.startCountdown()
+				} else {
+					log.Printf("[WS] 无法开始倒计时 - 不满足开始游戏条件")
+				}
+			}
 		}
 
 		// 广播游戏状态更新

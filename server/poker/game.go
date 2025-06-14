@@ -96,21 +96,81 @@ func (g *Game) GetSittingPlayersCount() int {
 
 // CanStartGame 检查是否可以开始游戏
 func (g *Game) CanStartGame() bool {
-	return g.GameStatus == GameStatusWaiting && g.GetSittingPlayersCount() >= MinPlayers
+	// 检查游戏状态
+	if g.GameStatus != GameStatusWaiting && g.GamePhase != GamePhaseShowdown {
+		log.Printf("[游戏] 无法开始游戏 - 游戏状态不是等待状态或摊牌阶段: %s", g.GameStatus)
+		return false
+	}
+
+	// 检查玩家数量
+	sittingPlayers := 0
+	readyPlayers := 0
+	for _, player := range g.Players {
+		if !player.IsEmpty() && player.Chips > 0 {
+			sittingPlayers++
+			if player.IsReady {
+				readyPlayers++
+			}
+		}
+	}
+
+	// 检查是否满足开始条件
+	canStart := sittingPlayers >= MinPlayers && sittingPlayers == readyPlayers
+	log.Printf("[游戏] 检查是否可以开始游戏 - 总玩家数=%d，已准备玩家数=%d，可以开始=%t",
+		sittingPlayers, readyPlayers, canStart)
+	return canStart
 }
 
-// StartGame 开始游戏
+// StartGame 开始新一轮游戏
 func (g *Game) StartGame() bool {
 	if !g.CanStartGame() {
 		return false
 	}
 
+	log.Printf("[游戏] 开始新一轮游戏")
+
+	// 重置游戏状态
 	g.GameStatus = GameStatusPlaying
 	g.GamePhase = GamePhasePreFlop
+	g.Pot = 0
+	g.CurrentBet = 0
+	g.CommunityCards = make([]Card, 0)
+	g.ShowdownOrder = make([]int, 0)
+	g.CurrentShowdown = -1
+	g.ShowdownTimer = 0
 
-	// 初始化新一轮游戏
-	g.initializeRound()
+	// 重置所有玩家的游戏状态
+	for i := range g.Players {
+		if !g.Players[i].IsEmpty() {
+			// 清空上一局的所有信息
+			g.Players[i].HoleCards = make([]Card, 0)  // 清空手牌
+			g.Players[i].CurrentBet = 0               // 清空当前下注
+			g.Players[i].TotalBet = 0                 // 清空总下注
+			g.Players[i].HandRank = nil               // 清空牌型
+			g.Players[i].WinAmount = 0                // 清空赢得金额
+			g.Players[i].HasActed = false             // 重置行动状态
+			g.Players[i].Status = PlayerStatusSitting // 重置为坐下状态
+			g.Players[i].IsReady = false              // 重置准备状态
+		}
+	}
 
+	// 创建并洗牌
+	g.createDeck()
+	g.shuffleDeck()
+
+	// 确定庄家位置
+	g.setDealer()
+
+	// 发手牌
+	g.dealHoleCards()
+
+	// 收取盲注
+	g.postBlinds()
+
+	// 设置第一个行动玩家（从大盲注后面第一个玩家开始）
+	g.setFirstActionPlayer()
+
+	log.Printf("[游戏] 游戏初始化完成，等待玩家行动")
 	return true
 }
 
@@ -119,48 +179,6 @@ func (g *Game) EndGame() {
 	g.GameStatus = GameStatusWaiting
 	g.GamePhase = ""
 	g.resetRound()
-}
-
-// initializeRound 初始化新一轮游戏
-func (g *Game) initializeRound() {
-	// 重置底池和下注
-	g.Pot = 0
-	g.CurrentBet = 0
-
-	// 清空公共牌
-	g.CommunityCards = make([]Card, 0, 5)
-
-	// 创建并洗牌
-	g.createDeck()
-	g.shuffleDeck()
-
-	// 重置所有玩家状态
-	for i := range g.Players {
-		if !g.Players[i].IsEmpty() {
-			g.Players[i].ResetForNewRound()
-		}
-	}
-
-	// 设置庄家位置（第一局从座位1开始，后续轮转）
-	if g.DealerPos == -1 {
-		// 第一局游戏，从座位1开始（如果座位1有人），否则找第一个有人的座位
-		g.DealerPos = g.findFirstActivePlayer()
-		log.Printf("[游戏] 第一局游戏，庄家位置设置为座位%d", g.DealerPos+1)
-	} else {
-		// 后续游戏，庄家位置轮转到下一个活跃玩家
-		oldDealerPos := g.DealerPos
-		g.DealerPos = g.getNextActivePlayer(g.DealerPos)
-		log.Printf("[游戏] 庄家位置从座位%d轮转到座位%d", oldDealerPos+1, g.DealerPos+1)
-	}
-
-	// 发底牌
-	g.dealHoleCards()
-
-	// 下盲注
-	g.postBlinds()
-
-	// 设置第一个行动玩家
-	g.setFirstActionPlayer()
 }
 
 // resetRound 重置游戏轮次
@@ -710,13 +728,9 @@ func (g *Game) AdvanceShowdown() {
 	}
 }
 
-// finishShowdown 完成摊牌，计算获胜者
+// finishShowdown 完成摊牌阶段
 func (g *Game) finishShowdown() {
 	log.Printf("[摊牌] 所有玩家摊牌完成，计算获胜者")
-
-	// 切换回普通摊牌阶段
-	g.GamePhase = GamePhaseShowdown
-	g.GameStatus = GameStatusWaiting // 将游戏状态改为等待
 
 	// 收集所有未弃牌的玩家
 	var activePlayers []*Player
@@ -756,31 +770,45 @@ func (g *Game) finishShowdown() {
 		log.Printf("[游戏] 玩家 %s 获胜，赢得 %d 筹码", winner.Player.Name, amount)
 	}
 
-	// 重置所有玩家的准备状态
+	// 切换到摊牌阶段并设置游戏状态为等待
+	g.GamePhase = GamePhaseShowdown
+	g.GameStatus = GameStatusWaiting
+
+	// 重置游戏相关状态
+	g.CurrentPlayer = -1
+	g.DealerPos = -1 // 重置庄家位置，下一局会重新选择
+	g.CountdownTimer = -1
+	g.ShowdownTimer = -1
+	g.CurrentShowdown = -1
+	g.ShowdownOrder = nil
+
+	// 重置所有玩家的准备状态和相关信息
 	for i := range g.Players {
 		if !g.Players[i].IsEmpty() {
 			g.Players[i].IsReady = false
-			log.Printf("[游戏] 重置玩家 %s 的准备状态", g.Players[i].Name)
+			g.Players[i].Status = PlayerStatusSitting
+			g.Players[i].HasActed = false
+			// 不要清空手牌、牌型和赢得金额，这些需要在结算面板中显示
+			// 这些信息会在玩家准备或开始新一局时清空
 		}
 	}
 
-	// 重置摊牌相关字段
-	g.ShowdownOrder = make([]int, 0)
-	g.CurrentShowdown = -1
-	g.ShowdownTimer = 0
+	log.Printf("[游戏] 摊牌阶段结束，等待玩家准备下一局")
 }
 
 // CheckAllPlayersReady 检查是否所有玩家都已准备
 func (g *Game) CheckAllPlayersReady() bool {
-	if g.GameStatus != GameStatusWaiting {
+	// 只有在等待状态或摊牌阶段才能检查准备状态
+	if g.GameStatus != GameStatusWaiting && g.GamePhase != GamePhaseShowdown {
 		return false
 	}
 
 	sittingPlayers := 0
 	readyPlayers := 0
 
+	// 统计所有有筹码的玩家
 	for _, player := range g.Players {
-		if !player.IsEmpty() && player.Status == PlayerStatusSitting {
+		if !player.IsEmpty() && player.Chips > 0 {
 			sittingPlayers++
 			if player.IsReady {
 				readyPlayers++
@@ -788,14 +816,17 @@ func (g *Game) CheckAllPlayersReady() bool {
 		}
 	}
 
+	log.Printf("[游戏] 检查准备状态：阶段=%s, 总玩家数=%d，已准备玩家数=%d", g.GamePhase, sittingPlayers, readyPlayers)
+
 	// 至少需要2个玩家，且所有玩家都已准备
 	return sittingPlayers >= MinPlayers && sittingPlayers == readyPlayers
 }
 
 // SetPlayerReady 设置玩家准备状态
 func (g *Game) SetPlayerReady(userId string, ready bool) bool {
-	// 只有在等待状态或摊牌阶段才能设置准备状态
-	if g.GameStatus != GameStatusWaiting && g.GamePhase != GamePhaseShowdown {
+	// 检查游戏状态
+	if g.GameStatus == GameStatusPlaying && g.GamePhase != GamePhaseShowdown {
+		log.Printf("[游戏] 游戏进行中且不在摊牌阶段，无法设置准备状态")
 		return false
 	}
 
@@ -808,11 +839,24 @@ func (g *Game) SetPlayerReady(userId string, ready bool) bool {
 			}
 
 			g.Players[i].IsReady = ready
+
+			// 如果是准备状态，且不在摊牌阶段，清空玩家的相关信息
+			if ready && g.GamePhase != GamePhaseShowdown {
+				g.Players[i].HoleCards = make([]Card, 0)  // 清空手牌
+				g.Players[i].CurrentBet = 0               // 清空当前下注
+				g.Players[i].TotalBet = 0                 // 清空总下注
+				g.Players[i].HandRank = nil               // 清空牌型
+				g.Players[i].WinAmount = 0                // 清空赢得金额
+				g.Players[i].HasActed = false             // 重置行动状态
+				g.Players[i].Status = PlayerStatusSitting // 重置为坐下状态
+			}
+
 			log.Printf("[游戏] 玩家 %s %s", g.Players[i].Name, map[bool]string{true: "已准备", false: "取消准备"}[ready])
 			return true
 		}
 	}
 
+	log.Printf("[游戏] 未找到玩家 %s", userId)
 	return false
 }
 
@@ -821,8 +865,9 @@ func (g *Game) GetReadyPlayersCount() (int, int) {
 	sittingPlayers := 0
 	readyPlayers := 0
 
+	// 统一统计逻辑：只统计有筹码的玩家
 	for _, player := range g.Players {
-		if !player.IsEmpty() && player.Status == PlayerStatusSitting {
+		if !player.IsEmpty() && player.Chips > 0 {
 			sittingPlayers++
 			if player.IsReady {
 				readyPlayers++
@@ -830,6 +875,7 @@ func (g *Game) GetReadyPlayersCount() (int, int) {
 		}
 	}
 
+	log.Printf("[游戏] 准备状态统计：阶段=%s, 总玩家数=%d，已准备玩家数=%d", g.GamePhase, sittingPlayers, readyPlayers)
 	return readyPlayers, sittingPlayers
 }
 
@@ -884,5 +930,19 @@ func (g *Game) dealRemainingCards() {
 		g.dealCard() // 烧牌
 		card := g.dealCard()
 		g.CommunityCards = append(g.CommunityCards, card)
+	}
+}
+
+// setDealer 设置庄家位置
+func (g *Game) setDealer() {
+	if g.DealerPos == -1 {
+		// 第一局游戏，选择第一个有玩家的位置作为庄家
+		g.DealerPos = g.findFirstActivePlayer()
+		log.Printf("[游戏] 第一局游戏，庄家位置设置为座位%d", g.DealerPos+1)
+	} else {
+		// 之后的每一局，庄家位置向后移动一位
+		oldDealerPos := g.DealerPos
+		g.DealerPos = g.getNextActivePlayer(g.DealerPos)
+		log.Printf("[游戏] 庄家位置从座位%d轮转到座位%d", oldDealerPos+1, g.DealerPos+1)
 	}
 }
