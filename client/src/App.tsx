@@ -3,16 +3,26 @@ import "./App.css";
 import type { User } from "./types/user";
 import PokerTable from "./components/PokerTable";
 import UserInfoCompact from "./components/UserInfoCompact";
-import { wsService, type GameState, type Player as WSPlayer, getHandName } from "./services/websocket";
-import ShowdownModal from './components/ShowdownModal';
+import {
+  wsService,
+  type GameState,
+  type Player as WSPlayer,
+  getHandName,
+} from "./services/websocket";
+import ShowdownModal from "./components/ShowdownModal";
 
 // 将WebSocket的Player转换为本地Player格式
 const convertWSPlayerToLocal = (wsPlayer: WSPlayer, _: number) => {
   // 检查是否为空座位
-  if (!wsPlayer || wsPlayer.status === "empty" || !wsPlayer.name || wsPlayer.name === "") {
+  if (
+    !wsPlayer ||
+    wsPlayer.status === "empty" ||
+    !wsPlayer.name ||
+    wsPlayer.name === ""
+  ) {
     return undefined;
   }
-  
+
   return {
     name: wsPlayer.name,
     chips: wsPlayer.chips,
@@ -21,6 +31,7 @@ const convertWSPlayerToLocal = (wsPlayer: WSPlayer, _: number) => {
     handRank: wsPlayer.handRank,
     winAmount: wsPlayer.winAmount,
     status: wsPlayer.status,
+    isReady: wsPlayer.isReady,
   };
 };
 
@@ -70,9 +81,9 @@ function App() {
 
   // 处理加注输入框的键盘事件
   const handleRaiseKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       confirmRaise();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       cancelRaise();
     }
   };
@@ -94,28 +105,34 @@ function App() {
   // 从游戏状态中提取座位信息
   const getSeatedPlayersFromGameState = () => {
     if (!gameState) return {};
-    
-    const seatedPlayers: { [seat: string]: { name: string; chips: number } } = {};
-    
+
+    const seatedPlayers: { [seat: string]: { name: string; chips: number } } =
+      {};
+
     gameState.players.forEach((player, index) => {
       const localPlayer = convertWSPlayerToLocal(player, index);
       if (localPlayer) {
         seatedPlayers[`座位${index + 1}`] = localPlayer;
       }
     });
-    
+
     return seatedPlayers;
   };
 
   // 检查当前用户的座位
   const getCurrentUserSeat = () => {
     if (!gameState || !user) return null;
-    
-    const userPlayerIndex = gameState.players.findIndex(player => player.userId === user.id);
-    if (userPlayerIndex !== -1 && gameState.players[userPlayerIndex].status !== "empty") {
+
+    const userPlayerIndex = gameState.players.findIndex(
+      (player) => player.userId === user.id
+    );
+    if (
+      userPlayerIndex !== -1 &&
+      gameState.players[userPlayerIndex].status !== "empty"
+    ) {
       return `座位${userPlayerIndex + 1}`;
     }
-    
+
     return null;
   };
 
@@ -166,7 +183,9 @@ function App() {
 
     // 检查玩家筹码是否足够
     if (gameState && user) {
-      const userPlayerIndex = gameState.players.findIndex(player => player.userId === user.id);
+      const userPlayerIndex = gameState.players.findIndex(
+        (player) => player.userId === user.id
+      );
       if (userPlayerIndex !== -1) {
         const userPlayer = gameState.players[userPlayerIndex];
         const raiseAmountNeeded = amount - userPlayer.currentBet;
@@ -203,7 +222,9 @@ function App() {
   // 获取玩家当前筹码
   const getCurrentUserChips = () => {
     if (!gameState || !user) return 0;
-    const userPlayerIndex = gameState.players.findIndex(player => player.userId === user.id);
+    const userPlayerIndex = gameState.players.findIndex(
+      (player) => player.userId === user.id
+    );
     if (userPlayerIndex === -1) return 0;
     return gameState.players[userPlayerIndex].chips;
   };
@@ -211,7 +232,9 @@ function App() {
   // 计算跟注金额
   const getCallAmount = () => {
     if (!gameState || !user) return 0;
-    const userPlayerIndex = gameState.players.findIndex(player => player.userId === user.id);
+    const userPlayerIndex = gameState.players.findIndex(
+      (player) => player.userId === user.id
+    );
     if (userPlayerIndex === -1) return 0;
     const userPlayer = gameState.players[userPlayerIndex];
     return gameState.currentBet - userPlayer.currentBet;
@@ -225,14 +248,18 @@ function App() {
   // 获取当前用户的准备状态
   const getCurrentUserReady = () => {
     if (!gameState || !user) return false;
-    const userPlayer = gameState.players.find(player => player.userId === user.id);
+    const userPlayer = gameState.players.find(
+      (player) => player.userId === user.id
+    );
     return userPlayer?.isReady || false;
   };
 
   // 获取当前用户的筹码数量
   const getCurrentUserChipsInSeat = () => {
     if (!gameState || !user) return 0;
-    const userPlayer = gameState.players.find(player => player.userId === user.id);
+    const userPlayer = gameState.players.find(
+      (player) => player.userId === user.id
+    );
     return userPlayer?.chips || 0;
   };
 
@@ -249,14 +276,20 @@ function App() {
   // 检查是否可以显示准备按钮
   const canShowReadyButton = () => {
     if (!gameState || !currentUserSeat) return false;
-    return gameState.gameStatus === "waiting" || gameState.gamePhase === "showdown";
+    return (
+      gameState.gameStatus === "waiting" || gameState.gamePhase === "showdown"
+    );
   };
 
   // 获取准备状态文本
   const getReadyStatusText = () => {
     if (!gameState) return "";
-    const readyCount = gameState.players.filter(p => p.status !== "empty" && p.isReady).length;
-    const totalCount = gameState.players.filter(p => p.status !== "empty").length;
+    const readyCount = gameState.players.filter(
+      (p) => p.status !== "empty" && p.isReady
+    ).length;
+    const totalCount = gameState.players.filter(
+      (p) => p.status !== "empty"
+    ).length;
     if (totalCount === 0) return "";
     return `${readyCount}/${totalCount} 已准备`;
   };
@@ -272,33 +305,50 @@ function App() {
 
   useEffect(() => {
     fetchUser();
-    
+
     // 注册WebSocket回调
     wsService.onGameState((newGameState: GameState) => {
       console.log("Received game state:", newGameState);
-      
+
       // 添加手牌调试信息
       if (newGameState.players) {
         newGameState.players.forEach((player, index) => {
           if (player.holeCards && player.holeCards.length > 0) {
-            console.log(`Player ${index + 1} (${player.name}) has ${player.holeCards.length} hole cards:`, player.holeCards);
+            console.log(
+              `Player ${index + 1} (${player.name}) has ${
+                player.holeCards.length
+              } hole cards:`,
+              player.holeCards
+            );
           }
           // 添加牌型调试信息
           if (player.handRank) {
-            console.log(`Player ${index + 1} (${player.name}) handRank:`, player.handRank);
-            console.log(`Player ${index + 1} (${player.name}) handRank.rank:`, player.handRank.rank);
-            console.log(`Player ${index + 1} (${player.name}) getHandName result:`, getHandName(player.handRank.rank));
+            console.log(
+              `Player ${index + 1} (${player.name}) handRank:`,
+              player.handRank
+            );
+            console.log(
+              `Player ${index + 1} (${player.name}) handRank.rank:`,
+              player.handRank.rank
+            );
+            console.log(
+              `Player ${index + 1} (${player.name}) getHandName result:`,
+              getHandName(player.handRank.rank)
+            );
           } else {
             console.log(`Player ${index + 1} (${player.name}) has no handRank`);
           }
         });
       }
-      
+
       // 添加摊牌调试信息
       if (newGameState.gamePhase === "showdown_reveal") {
         console.log(`[摊牌状态] gamePhase: ${newGameState.gamePhase}`);
         console.log(`[摊牌状态] showdownOrder:`, newGameState.showdownOrder);
-        console.log(`[摊牌状态] currentShowdown:`, newGameState.currentShowdown);
+        console.log(
+          `[摊牌状态] currentShowdown:`,
+          newGameState.currentShowdown
+        );
       }
       setGameState(newGameState);
     });
@@ -374,7 +424,7 @@ function App() {
           </button>
         </div>
       )}
-      
+
       <PokerTable
         seatedPlayers={seatedPlayers}
         currentUserSeat={currentUserSeat}
@@ -390,44 +440,46 @@ function App() {
         onLeave={handleLeave}
       />
       <UserInfoCompact user={user} onUpdateName={updateUserName} />
-      
+
       {/* 倒计时显示 - 使用flexbox居中 */}
-      {canShowReadyButton() && gameState?.countdownTimer !== undefined && gameState.countdownTimer > 0 && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            pointerEvents: "none", // 不阻挡其他元素的点击
-            zIndex: 11,
-          }}
-        >
+      {canShowReadyButton() &&
+        gameState?.countdownTimer !== undefined &&
+        gameState.countdownTimer > 0 && (
           <div
             style={{
-              marginTop: "-50px", // 稍微向上偏移
-              background: "rgba(255, 215, 0, 0.95)",
-              color: "#000",
-              padding: "8px 16px",
-              borderRadius: "20px",
-              fontSize: "18px",
-              fontWeight: "bold",
-              border: "2px solid #FFD700",
-              boxShadow: "0 4px 12px rgba(255, 215, 0, 0.5)",
-              animation: "pulse 1s infinite",
-              whiteSpace: "nowrap",
-              pointerEvents: "auto", // 恢复这个元素的点击事件
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none", // 不阻挡其他元素的点击
+              zIndex: 11,
             }}
           >
-            游戏即将开始 {gameState.countdownTimer}
+            <div
+              style={{
+                marginTop: "-50px", // 稍微向上偏移
+                background: "rgba(255, 215, 0, 0.95)",
+                color: "#000",
+                padding: "8px 16px",
+                borderRadius: "20px",
+                fontSize: "18px",
+                fontWeight: "bold",
+                border: "2px solid #FFD700",
+                boxShadow: "0 4px 12px rgba(255, 215, 0, 0.5)",
+                animation: "pulse 1s infinite",
+                whiteSpace: "nowrap",
+                pointerEvents: "auto", // 恢复这个元素的点击事件
+              }}
+            >
+              游戏即将开始 {gameState.countdownTimer}
+            </div>
           </div>
-        </div>
-      )}
-      
+        )}
+
       {/* 准备/取消准备按钮 */}
       {canShowReadyButton() && (
         <div
@@ -459,7 +511,7 @@ function App() {
               {getReadyStatusText()}
             </div>
           )}
-          
+
           {/* 准备按钮或筹码不足提示 - 固定位置 */}
           {getCurrentUserChipsInSeat() <= 0 ? (
             <div
@@ -500,8 +552,12 @@ function App() {
                   transition: "all 0.2s ease",
                   minWidth: "120px",
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#5a6268"}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#6c757d"}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#5a6268")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#6c757d")
+                }
               >
                 离开座位
               </button>
@@ -547,7 +603,7 @@ function App() {
           )}
         </div>
       )}
-      
+
       {/* 玩家行动按钮 */}
       {isCurrentUserTurn() && !showRaiseInput && (
         <div
@@ -588,7 +644,7 @@ function App() {
           >
             弃牌
           </button>
-          
+
           {canCheck() ? (
             <button
               onClick={handleCheck}
@@ -644,7 +700,7 @@ function App() {
               跟注 {getCallAmount()}
             </button>
           )}
-          
+
           <button
             onClick={handleRaise}
             style={{
@@ -673,7 +729,7 @@ function App() {
           </button>
         </div>
       )}
-      
+
       {/* 加注输入界面 */}
       {isCurrentUserTurn() && showRaiseInput && (
         <div
@@ -708,206 +764,281 @@ function App() {
             }}
             onClick={(e) => e.stopPropagation()} // 阻止点击面板内容时关闭
           >
-          <div style={{ color: "white", fontSize: "18px", fontWeight: "bold", textAlign: "center" }}>
-            选择加注金额
-          </div>
-          
-          <div style={{ 
-            color: "#ccc", 
-            fontSize: "13px", 
-            textAlign: "center",
-            background: "rgba(255,255,255,0.1)",
-            padding: "8px",
-            borderRadius: "8px"
-          }}>
-            最小加注: {getMinRaise()} | 您的筹码: {getCurrentUserChips()} | 底池: {gameState?.pot || 0}
-          </div>
-          
-          {/* 输入框和滑块 */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <input
-              type="number"
-              value={raiseAmount}
-              onChange={(e) => setRaiseAmount(e.target.value)}
-              min={getMinRaise()}
-              max={getCurrentUserChips() + (gameState?.players.find(p => p.userId === user?.id)?.currentBet || 0)}
+            <div
               style={{
-                padding: "14px",
+                color: "white",
                 fontSize: "18px",
-                borderRadius: "8px",
-                border: "2px solid #fd7e14",
-                background: "white",
-                textAlign: "center",
-                outline: "none",
                 fontWeight: "bold",
+                textAlign: "center",
               }}
-              placeholder={`最小 ${getMinRaise()}`}
-              autoFocus
-              onKeyDown={handleRaiseKeyDown}
-            />
-            
-            {/* 滑块控制 */}
-            <input
-              type="range"
-              min={getMinRaise()}
-              max={getCurrentUserChips() + (gameState?.players.find(p => p.userId === user?.id)?.currentBet || 0)}
-              value={raiseAmount || getMinRaise()}
-              onChange={(e) => setRaiseAmount(e.target.value)}
+            >
+              选择加注金额
+            </div>
+
+            <div
               style={{
-                width: "100%",
-                height: "6px",
-                borderRadius: "3px",
-                background: "#ddd",
-                outline: "none",
-                cursor: "pointer",
+                color: "#ccc",
+                fontSize: "13px",
+                textAlign: "center",
+                background: "rgba(255,255,255,0.1)",
+                padding: "8px",
+                borderRadius: "8px",
               }}
-            />
-          </div>
-          
-          {/* 快捷加注按钮 - 更多选项 */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
-            {[
-              { label: "最小", value: getMinRaise() },
-              { label: "1/2底池", value: Math.max(Math.floor((gameState?.pot || 0) * 0.5), getMinRaise()) },
-              { label: "底池", value: Math.max(gameState?.pot || 0, getMinRaise()) },
-              { label: "1.5倍底池", value: Math.max(Math.floor((gameState?.pot || 0) * 1.5), getMinRaise()) },
-              { label: "2倍底池", value: Math.max((gameState?.pot || 0) * 2, getMinRaise()) },
-              { label: "全下", value: getCurrentUserChips() + (gameState?.players.find(p => p.userId === user?.id)?.currentBet || 0) },
-            ].map((option, index) => (
-              <button
-                key={index}
-                onClick={() => setRaiseAmount(option.value.toString())}
+            >
+              最小加注: {getMinRaise()} | 您的筹码: {getCurrentUserChips()} |
+              底池: {gameState?.pot || 0}
+            </div>
+
+            {/* 输入框和滑块 */}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+            >
+              <input
+                type="number"
+                value={raiseAmount}
+                onChange={(e) => setRaiseAmount(e.target.value)}
+                min={getMinRaise()}
+                max={
+                  getCurrentUserChips() +
+                  (gameState?.players.find((p) => p.userId === user?.id)
+                    ?.currentBet || 0)
+                }
                 style={{
-                  padding: "10px 8px",
-                  fontSize: "12px",
+                  padding: "14px",
+                  fontSize: "18px",
+                  borderRadius: "8px",
+                  border: "2px solid #fd7e14",
+                  background: "white",
+                  textAlign: "center",
+                  outline: "none",
                   fontWeight: "bold",
-                  backgroundColor: parseInt(raiseAmount) === option.value ? "#fd7e14" : "#495057",
+                }}
+                placeholder={`最小 ${getMinRaise()}`}
+                autoFocus
+                onKeyDown={handleRaiseKeyDown}
+              />
+
+              {/* 滑块控制 */}
+              <input
+                type="range"
+                min={getMinRaise()}
+                max={
+                  getCurrentUserChips() +
+                  (gameState?.players.find((p) => p.userId === user?.id)
+                    ?.currentBet || 0)
+                }
+                value={raiseAmount || getMinRaise()}
+                onChange={(e) => setRaiseAmount(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: "6px",
+                  borderRadius: "3px",
+                  background: "#ddd",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              />
+            </div>
+
+            {/* 快捷加注按钮 - 更多选项 */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr",
+                gap: "8px",
+              }}
+            >
+              {[
+                { label: "最小", value: getMinRaise() },
+                {
+                  label: "1/2底池",
+                  value: Math.max(
+                    Math.floor((gameState?.pot || 0) * 0.5),
+                    getMinRaise()
+                  ),
+                },
+                {
+                  label: "底池",
+                  value: Math.max(gameState?.pot || 0, getMinRaise()),
+                },
+                {
+                  label: "1.5倍底池",
+                  value: Math.max(
+                    Math.floor((gameState?.pot || 0) * 1.5),
+                    getMinRaise()
+                  ),
+                },
+                {
+                  label: "2倍底池",
+                  value: Math.max((gameState?.pot || 0) * 2, getMinRaise()),
+                },
+                {
+                  label: "全下",
+                  value:
+                    getCurrentUserChips() +
+                    (gameState?.players.find((p) => p.userId === user?.id)
+                      ?.currentBet || 0),
+                },
+              ].map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => setRaiseAmount(option.value.toString())}
+                  style={{
+                    padding: "10px 8px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    backgroundColor:
+                      parseInt(raiseAmount) === option.value
+                        ? "#fd7e14"
+                        : "#495057",
+                    color: "white",
+                    border:
+                      parseInt(raiseAmount) === option.value
+                        ? "2px solid #ff9500"
+                        : "1px solid #6c757d",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseOver={(e) => {
+                    if (parseInt(raiseAmount) !== option.value) {
+                      e.currentTarget.style.backgroundColor = "#5a6268";
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (parseInt(raiseAmount) !== option.value) {
+                      e.currentTarget.style.backgroundColor = "#495057";
+                    }
+                  }}
+                >
+                  {option.label}
+                  <div style={{ fontSize: "10px", opacity: 0.8 }}>
+                    {option.value}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* 快速调整按钮 */}
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "8px" }}
+            >
+              <button
+                onClick={() => {
+                  const current = parseInt(raiseAmount) || getMinRaise();
+                  const step = Math.max(
+                    10,
+                    Math.floor((gameState?.bigBlind || 20) / 2)
+                  );
+                  setRaiseAmount(
+                    Math.max(current - step, getMinRaise()).toString()
+                  );
+                }}
+                style={{
+                  padding: "8px 12px",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  backgroundColor: "#6c757d",
                   color: "white",
-                  border: parseInt(raiseAmount) === option.value ? "2px solid #ff9500" : "1px solid #6c757d",
+                  border: "none",
                   borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                -
+              </button>
+              <button
+                onClick={() => {
+                  const current = parseInt(raiseAmount) || getMinRaise();
+                  const step = Math.max(
+                    10,
+                    Math.floor((gameState?.bigBlind || 20) / 2)
+                  );
+                  const maxAmount =
+                    getCurrentUserChips() +
+                    (gameState?.players.find((p) => p.userId === user?.id)
+                      ?.currentBet || 0);
+                  setRaiseAmount(
+                    Math.min(current + step, maxAmount).toString()
+                  );
+                }}
+                style={{
+                  padding: "8px 12px",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  backgroundColor: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                +
+              </button>
+            </div>
+
+            {/* 确认和取消按钮 */}
+            <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
+              <button
+                onClick={cancelRaise}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  backgroundColor: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
                   cursor: "pointer",
                   transition: "all 0.2s ease",
                 }}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#5a6268")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#6c757d")
+                }
+              >
+                取消
+              </button>
+
+              <button
+                onClick={confirmRaise}
+                style={{
+                  flex: 2,
+                  padding: "14px",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  backgroundColor: "#fd7e14",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  boxShadow: "0 4px 12px rgba(253, 126, 20, 0.3)",
+                }}
                 onMouseOver={(e) => {
-                  if (parseInt(raiseAmount) !== option.value) {
-                    e.currentTarget.style.backgroundColor = "#5a6268";
-                  }
+                  e.currentTarget.style.backgroundColor = "#e8690b";
+                  e.currentTarget.style.transform = "translateY(-1px)";
                 }}
                 onMouseOut={(e) => {
-                  if (parseInt(raiseAmount) !== option.value) {
-                    e.currentTarget.style.backgroundColor = "#495057";
-                  }
+                  e.currentTarget.style.backgroundColor = "#fd7e14";
+                  e.currentTarget.style.transform = "translateY(0)";
                 }}
               >
-                {option.label}
-                <div style={{ fontSize: "10px", opacity: 0.8 }}>
-                  {option.value}
-                </div>
+                确认加注 {raiseAmount}
               </button>
-            ))}
-          </div>
-          
-          {/* 快速调整按钮 */}
-          <div style={{ display: "flex", justifyContent: "center", gap: "8px" }}>
-            <button
-              onClick={() => {
-                const current = parseInt(raiseAmount) || getMinRaise();
-                const step = Math.max(10, Math.floor((gameState?.bigBlind || 20) / 2));
-                setRaiseAmount(Math.max(current - step, getMinRaise()).toString());
-              }}
-              style={{
-                padding: "8px 12px",
-                fontSize: "16px",
-                fontWeight: "bold",
-                backgroundColor: "#6c757d",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
-            >
-              -
-            </button>
-            <button
-              onClick={() => {
-                const current = parseInt(raiseAmount) || getMinRaise();
-                const step = Math.max(10, Math.floor((gameState?.bigBlind || 20) / 2));
-                const maxAmount = getCurrentUserChips() + (gameState?.players.find(p => p.userId === user?.id)?.currentBet || 0);
-                setRaiseAmount(Math.min(current + step, maxAmount).toString());
-              }}
-              style={{
-                padding: "8px 12px",
-                fontSize: "16px",
-                fontWeight: "bold",
-                backgroundColor: "#6c757d",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
-            >
-              +
-            </button>
-          </div>
-          
-          {/* 确认和取消按钮 */}
-          <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
-            <button
-              onClick={cancelRaise}
-              style={{
-                flex: 1,
-                padding: "14px",
-                fontSize: "16px",
-                fontWeight: "bold",
-                backgroundColor: "#6c757d",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#5a6268"}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#6c757d"}
-            >
-              取消
-            </button>
-            
-            <button
-              onClick={confirmRaise}
-              style={{
-                flex: 2,
-                padding: "14px",
-                fontSize: "16px",
-                fontWeight: "bold",
-                backgroundColor: "#fd7e14",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                boxShadow: "0 4px 12px rgba(253, 126, 20, 0.3)",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = "#e8690b";
-                e.currentTarget.style.transform = "translateY(-1px)";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.backgroundColor = "#fd7e14";
-                e.currentTarget.style.transform = "translateY(0)";
-              }}
-            >
-              确认加注 {raiseAmount}
-            </button>
-          </div>
+            </div>
           </div>
         </div>
       )}
-      
+
       {showdown && gameState && (
         <ShowdownModal
           players={gameState.players.map((p, i) => ({
             ...p,
-            holeCards: convertWSPlayerToLocal(p, i)?.holeCards || []
+            holeCards: convertWSPlayerToLocal(p, i)?.holeCards || [],
           }))}
           pot={gameState.pot}
           communityCards={gameState.communityCards}
@@ -918,29 +1049,43 @@ function App() {
           }}
         />
       )}
-      
+
       {/* 调试信息 */}
       {gameState && (
-        <div style={{
-          position: "fixed",
-          bottom: "20px",
-          left: "20px",
-          background: "rgba(0,0,0,0.8)",
-          color: "white",
-          padding: "10px",
-          borderRadius: "5px",
-          fontSize: "12px",
-          maxWidth: "300px",
-        }}>
+        <div
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            left: "20px",
+            background: "rgba(0,0,0,0.8)",
+            color: "white",
+            padding: "10px",
+            borderRadius: "5px",
+            fontSize: "12px",
+            maxWidth: "300px",
+          }}
+        >
           <div>游戏状态: {gameState.gameStatus}</div>
           {gameState.gamePhase && <div>游戏阶段: {gameState.gamePhase}</div>}
-          <div>在线玩家: {gameState.players.filter(p => p.status !== "empty").length}</div>
+          <div>
+            在线玩家:{" "}
+            {gameState.players.filter((p) => p.status !== "empty").length}
+          </div>
           <div>观众: {gameState.spectators}</div>
           {gameState.pot > 0 && <div>底池: {gameState.pot}</div>}
-          {gameState.currentBet > 0 && <div>当前下注: {gameState.currentBet}</div>}
-          {gameState.dealerPos >= 0 && <div>庄家位置: 座位{gameState.dealerPos + 1}</div>}
-          {gameState.currentPlayer >= 0 && <div>当前玩家: 座位{gameState.currentPlayer + 1}</div>}
-          {gameState.countdownTimer !== undefined && gameState.countdownTimer > 0 && <div>倒计时: {gameState.countdownTimer}秒</div>}
+          {gameState.currentBet > 0 && (
+            <div>当前下注: {gameState.currentBet}</div>
+          )}
+          {gameState.dealerPos >= 0 && (
+            <div>庄家位置: 座位{gameState.dealerPos + 1}</div>
+          )}
+          {gameState.currentPlayer >= 0 && (
+            <div>当前玩家: 座位{gameState.currentPlayer + 1}</div>
+          )}
+          {gameState.countdownTimer !== undefined &&
+            gameState.countdownTimer > 0 && (
+              <div>倒计时: {gameState.countdownTimer}秒</div>
+            )}
           <div>{getReadyStatusText()}</div>
         </div>
       )}

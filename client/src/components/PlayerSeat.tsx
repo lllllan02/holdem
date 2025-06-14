@@ -1,4 +1,5 @@
 import type { Card } from "../services/websocket";
+import { useEffect } from "react";
 
 interface Player {
   name: string;
@@ -16,11 +17,16 @@ interface Player {
 // 获取花色符号
 export function getSuitSymbol(suit: string): string {
   switch (suit) {
-    case 'hearts': return '♥';
-    case 'diamonds': return '♦';
-    case 'clubs': return '♣';
-    case 'spades': return '♠';
-    default: return '';
+    case "hearts":
+      return "♥";
+    case "diamonds":
+      return "♦";
+    case "clubs":
+      return "♣";
+    case "spades":
+      return "♠";
+    default:
+      return "";
   }
 }
 
@@ -34,6 +40,9 @@ export default function PlayerSeat({
   isBigBlind = false,
   isCurrentPlayer = false,
   onSit,
+  isEmpty,
+  onLeave,
+  seatNumber,
 }: {
   player?: Player;
   seat: string;
@@ -44,12 +53,25 @@ export default function PlayerSeat({
   isBigBlind?: boolean;
   isCurrentPlayer?: boolean;
   onSit?: () => void;
+  isEmpty: boolean;
+  onLeave?: () => void;
+  seatNumber: string;
 }) {
-  const isEmpty = !player;
+  useEffect(() => {
+    if (!isEmpty && player) {
+      console.log(`[PlayerSeat ${seatNumber}] 状态更新:`, {
+        gameStatus,
+        playerName: player.name,
+        isReady: player.isReady,
+        isEmpty,
+      });
+    }
+  }, [gameStatus, player, isEmpty, seatNumber]);
+
   const canSit = isEmpty && gameStatus === "waiting";
 
   // 调试信息
-  if (!isEmpty && (isSmallBlind || isBigBlind)) {
+  if (!isEmpty && player && (isSmallBlind || isBigBlind)) {
     console.log(
       `[PlayerSeat调试] ${seat} - ${player.name}: 小盲=${isSmallBlind}, 大盲=${isBigBlind}`
     );
@@ -91,27 +113,6 @@ export default function PlayerSeat({
           }}
         >
           D
-        </div>
-      )}
-
-      {/* 准备状态标识 */}
-      {!isEmpty && gameStatus === "waiting" && player.isReady && (
-        <div
-          style={{
-            position: "absolute",
-            top: "-8px",
-            right: isDealer ? "-35px" : "-8px", // 如果有庄家标识，向左偏移
-            background: "#4CAF50",
-            color: "white",
-            borderRadius: "4px",
-            padding: "2px 6px",
-            fontSize: "10px",
-            fontWeight: "bold",
-            whiteSpace: "nowrap",
-            zIndex: 2,
-          }}
-        >
-          已准备
         </div>
       )}
 
@@ -160,25 +161,44 @@ export default function PlayerSeat({
           {gameStatus === "playing" ? "游戏中" : "点击落座"}
         </div>
       ) : (
-        <>
-          <div 
-            className="player-seat-name"
-            style={{
-              color: "#FFD700",
-              opacity: player.status === "folded" ? 0.5 : 1,
-            }}
-          >
-            {player.name}
-          </div>
-          <div className="player-seat-chips">
-            {player.chips}
-          </div>
-          {player.currentBet && player.currentBet > 0 && (
-            <div className="player-bet-amount">
-              {player.currentBet}
+        player && (
+          <>
+            <div
+              className="player-seat-name"
+              style={{
+                color: "#FFD700",
+                opacity: player.status === "folded" ? 0.5 : 1,
+              }}
+            >
+              {player.name}
             </div>
-          )}
-        </>
+            <div className="player-seat-chips">{player.chips}</div>
+            {player.currentBet && player.currentBet > 0 && (
+              <div className="player-bet-amount">{player.currentBet}</div>
+            )}
+            {!isEmpty && gameStatus === "waiting" && onLeave && (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLeave();
+                }}
+                style={{
+                  position: "absolute",
+                  bottom: "-20px",
+                  right: "0",
+                  background: "#F44336",
+                  color: "white",
+                  padding: "2px 8px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
+              >
+                离开
+              </div>
+            )}
+          </>
+        )
       )}
     </div>
   );
