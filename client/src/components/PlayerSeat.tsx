@@ -44,11 +44,9 @@ const hoverStyle = `
 
 export default function PlayerSeat({
   player,
-  seat,
   style = {},
   gameStatus = "waiting",
   gamePhase = "",
-  isDealer = false,
   isSmallBlind = false,
   isBigBlind = false,
   isCurrentPlayer = false,
@@ -59,11 +57,9 @@ export default function PlayerSeat({
   seatNumber,
 }: {
   player?: Player;
-  seat: string;
   style?: React.CSSProperties;
   gameStatus?: string;
   gamePhase?: string;
-  isDealer?: boolean;
   isSmallBlind?: boolean;
   isBigBlind?: boolean;
   isCurrentPlayer?: boolean;
