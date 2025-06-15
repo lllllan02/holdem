@@ -37,6 +37,8 @@ type Game struct {
 	Pot            int      `json:"pot"`            // 底池
 	CurrentBet     int      `json:"currentBet"`     // 当前下注额
 	DealerPos      int      `json:"dealerPos"`      // 庄家位置
+	SmallBlindPos  int      `json:"smallBlindPos"`  // 小盲注位置
+	BigBlindPos    int      `json:"bigBlindPos"`    // 大盲注位置
 	CurrentPlayer  int      `json:"currentPlayer"`  // 当前行动玩家
 	SmallBlind     int      `json:"smallBlind"`     // 小盲注
 	BigBlind       int      `json:"bigBlind"`       // 大盲注
@@ -75,6 +77,8 @@ func NewGame() *Game {
 		Pot:             0,
 		CurrentBet:      0,
 		DealerPos:       -1, // 初始化为-1，表示还未设置庄家
+		SmallBlindPos:   -1, // 初始化为-1，表示还未设置小盲注位置
+		BigBlindPos:     -1, // 初始化为-1，表示还未设置大盲注位置
 		CurrentPlayer:   -1,
 		SmallBlind:      DefaultSmallBlind,
 		BigBlind:        DefaultBigBlind,
@@ -166,6 +170,23 @@ func (g *Game) StartGame() bool {
 	// 确定庄家位置
 	g.setDealer()
 
+	// 轮换大小盲注位置（如果不是第一局）
+	if g.SmallBlindPos != -1 && g.BigBlindPos != -1 {
+		// 找到下一个有效的小盲注位置（从当前小盲注位置开始）
+		nextSmallBlindPos := g.getNextActivePlayer(g.SmallBlindPos)
+		if nextSmallBlindPos != -1 {
+			// 找到下一个有效的大盲注位置（从新的小盲注位置开始）
+			nextBigBlindPos := g.getNextActivePlayer(nextSmallBlindPos)
+			if nextBigBlindPos != -1 {
+				g.SmallBlindPos = nextSmallBlindPos
+				g.BigBlindPos = nextBigBlindPos
+				log.Printf("[游戏] 轮换盲注位置 - 新小盲：座位%d (%s), 新大盲：座位%d (%s)",
+					g.SmallBlindPos+1, g.Players[g.SmallBlindPos].Name,
+					g.BigBlindPos+1, g.Players[g.BigBlindPos].Name)
+			}
+		}
+	}
+
 	// 发手牌
 	g.dealHoleCards()
 
@@ -183,6 +204,24 @@ func (g *Game) StartGame() bool {
 func (g *Game) EndGame() {
 	g.GameStatus = GameStatusWaiting
 	g.GamePhase = ""
+
+	// 轮换大小盲注位置
+	if g.SmallBlindPos != -1 && g.BigBlindPos != -1 {
+		// 找到下一个有效的小盲注位置（从当前小盲注位置开始）
+		nextSmallBlindPos := g.getNextActivePlayer(g.SmallBlindPos)
+		if nextSmallBlindPos != -1 {
+			// 找到下一个有效的大盲注位置（从新的小盲注位置开始）
+			nextBigBlindPos := g.getNextActivePlayer(nextSmallBlindPos)
+			if nextBigBlindPos != -1 {
+				g.SmallBlindPos = nextSmallBlindPos
+				g.BigBlindPos = nextBigBlindPos
+				log.Printf("[游戏] 轮换盲注位置 - 新小盲：座位%d (%s), 新大盲：座位%d (%s)",
+					g.SmallBlindPos+1, g.Players[g.SmallBlindPos].Name,
+					g.BigBlindPos+1, g.Players[g.BigBlindPos].Name)
+			}
+		}
+	}
+
 	g.resetRound()
 }
 
@@ -194,6 +233,7 @@ func (g *Game) resetRound() {
 	g.DealerPos = -1 // 重置为-1，下次开始游戏时重新设置
 	g.CurrentPlayer = -1
 	g.Deck = make([]Card, 0, 52)
+	// 不重置 SmallBlindPos 和 BigBlindPos，这样它们可以在游戏之间保持
 }
 
 // createDeck 创建标准52张牌
@@ -249,7 +289,7 @@ func (g *Game) dealHoleCards() {
 func (g *Game) postBlinds() {
 	playerCount := g.GetSittingPlayersCount()
 
-	// 新的盲注逻辑：小盲总是第一个有人的座位，大盲是第二个有人的座位
+	// 获取所有有人的座位
 	occupiedSeats := make([]int, 0)
 	for i, player := range g.Players {
 		if !player.IsEmpty() && player.Status == PlayerStatusSitting {
@@ -257,36 +297,38 @@ func (g *Game) postBlinds() {
 		}
 	}
 
-	var smallBlindPos, bigBlindPos int
-	if len(occupiedSeats) >= 2 {
-		smallBlindPos = occupiedSeats[0] // 第一个有人的座位作为小盲
-		bigBlindPos = occupiedSeats[1]   // 第二个有人的座位作为大盲
-	} else if len(occupiedSeats) == 1 {
-		// 只有一个玩家的情况（理论上不应该发生）
-		smallBlindPos = occupiedSeats[0]
-		bigBlindPos = occupiedSeats[0]
-	} else {
-		return // 没有玩家
+	// 如果是第一局游戏（大小盲注位置都是-1）
+	if g.SmallBlindPos == -1 || g.BigBlindPos == -1 {
+		if len(occupiedSeats) >= 2 {
+			g.SmallBlindPos = occupiedSeats[0] // 第一个有人的座位作为小盲
+			g.BigBlindPos = occupiedSeats[1]   // 第二个有人的座位作为大盲
+		} else if len(occupiedSeats) == 1 {
+			// 只有一个玩家的情况（理论上不应该发生）
+			g.SmallBlindPos = occupiedSeats[0]
+			g.BigBlindPos = occupiedSeats[0]
+		} else {
+			return // 没有玩家
+		}
 	}
 
 	log.Printf("[游戏] 玩家数量: %d", playerCount)
 	log.Printf("[游戏] 庄家位置: 座位%d (%s)", g.DealerPos+1, g.Players[g.DealerPos].Name)
-	log.Printf("[游戏] 小盲位置: 座位%d (%s)", smallBlindPos+1, g.Players[smallBlindPos].Name)
-	log.Printf("[游戏] 大盲位置: 座位%d (%s)", bigBlindPos+1, g.Players[bigBlindPos].Name)
+	log.Printf("[游戏] 小盲位置: 座位%d (%s)", g.SmallBlindPos+1, g.Players[g.SmallBlindPos].Name)
+	log.Printf("[游戏] 大盲位置: 座位%d (%s)", g.BigBlindPos+1, g.Players[g.BigBlindPos].Name)
 
 	// 小盲注
-	if smallBlindPos != -1 {
-		g.Players[smallBlindPos].PostBlind(g.SmallBlind)
+	if g.SmallBlindPos != -1 {
+		g.Players[g.SmallBlindPos].PostBlind(g.SmallBlind)
 		g.Pot += g.SmallBlind
-		log.Printf("[游戏] %s 下小盲注 %d", g.Players[smallBlindPos].Name, g.SmallBlind)
+		log.Printf("[游戏] %s 下小盲注 %d", g.Players[g.SmallBlindPos].Name, g.SmallBlind)
 	}
 
 	// 大盲注
-	if bigBlindPos != -1 {
-		g.Players[bigBlindPos].PostBlind(g.BigBlind)
+	if g.BigBlindPos != -1 {
+		g.Players[g.BigBlindPos].PostBlind(g.BigBlind)
 		g.Pot += g.BigBlind
 		g.CurrentBet = g.BigBlind
-		log.Printf("[游戏] %s 下大盲注 %d", g.Players[bigBlindPos].Name, g.BigBlind)
+		log.Printf("[游戏] %s 下大盲注 %d", g.Players[g.BigBlindPos].Name, g.BigBlind)
 	}
 }
 
