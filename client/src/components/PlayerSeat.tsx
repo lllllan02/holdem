@@ -266,26 +266,6 @@ export default function PlayerSeat({
           </div>
         </div>
       )}
-
-      {/* 准备状态 */}
-      {!isEmpty && gameStatus === "waiting" && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "8px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: player?.isReady ? "#4CAF50" : "#FFA000",
-            color: "white",
-            padding: "2px 12px",
-            borderRadius: "4px",
-            fontSize: "12px",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {player?.isReady ? "已准备" : "未准备"}
-        </div>
-      )}
     </div>
   );
 }
