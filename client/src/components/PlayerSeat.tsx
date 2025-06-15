@@ -109,10 +109,19 @@ export default function PlayerSeat({
           width: "80px",
           height: "80px",
           marginTop: "28px",
-          cursor: !isEmpty && isCurrentUser && (gameStatus === "waiting" || gamePhase === "showdown") ? "pointer" : "default",
+          cursor:
+            !isEmpty &&
+            isCurrentUser &&
+            (gameStatus === "waiting" || gamePhase === "showdown")
+              ? "pointer"
+              : "default",
         }}
         onClick={(e) => {
-          if (!isEmpty && isCurrentUser && (gameStatus === "waiting" || gamePhase === "showdown")) {
+          if (
+            !isEmpty &&
+            isCurrentUser &&
+            (gameStatus === "waiting" || gamePhase === "showdown")
+          ) {
             e.stopPropagation();
             onLeave?.();
           }
@@ -137,7 +146,11 @@ export default function PlayerSeat({
               fontSize: "12px",
               fontWeight: "bold",
               border: `2px solid ${isSmallBlind ? "#45a049" : "#1976D2"}`,
-              boxShadow: `0 2px 4px ${isSmallBlind ? "rgba(76, 175, 80, 0.3)" : "rgba(33, 150, 243, 0.3)"}`,
+              boxShadow: `0 2px 4px ${
+                isSmallBlind
+                  ? "rgba(76, 175, 80, 0.3)"
+                  : "rgba(33, 150, 243, 0.3)"
+              }`,
             }}
           >
             {isSmallBlind ? "小" : "大"}
@@ -176,41 +189,44 @@ export default function PlayerSeat({
                 }}
               />
               {/* 可离座时显示提示 - 只在当前用户的座位上显示 */}
-              {(gameStatus === "waiting" || gamePhase === "showdown") && isCurrentUser && (
-                <div
-                  className="hover-overlay"
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: "rgba(0, 0, 0, 0.5)",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "12px",
-                  }}
-                >
-                  点击离座
-                </div>
-              )}
+              {(gameStatus === "waiting" || gamePhase === "showdown") &&
+                isCurrentUser && (
+                  <div
+                    className="hover-overlay"
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: "rgba(0, 0, 0, 0.5)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "12px",
+                    }}
+                  >
+                    点击离座
+                  </div>
+                )}
             </>
           )}
           {isEmpty && (
-            <div 
-              style={{ 
+            <div
+              style={{
                 position: "absolute",
                 top: "50%",
                 left: "50%",
                 transform: "translate(-50%, -50%)",
-                color: "#999", 
+                color: "#999",
                 fontSize: "14px",
                 whiteSpace: "nowrap",
               }}
             >
-              {gameStatus === "playing" && gamePhase !== "showdown" ? "游戏中" : "点击落座"}
+              {gameStatus === "playing" && gamePhase !== "showdown"
+                ? "游戏中"
+                : "点击落座"}
             </div>
           )}
         </div>
@@ -268,26 +284,6 @@ export default function PlayerSeat({
           }}
         >
           {player?.isReady ? "已准备" : "未准备"}
-        </div>
-      )}
-
-      {/* 下注金额 */}
-      {!isEmpty && player && player.currentBet && player.currentBet > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "-25px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(0, 0, 0, 0.7)",
-            color: "#FFD700",
-            padding: "2px 6px",
-            borderRadius: "4px",
-            fontSize: "12px",
-            zIndex: 2,
-          }}
-        >
-          {player.currentBet}
         </div>
       )}
     </div>

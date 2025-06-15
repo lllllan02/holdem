@@ -293,9 +293,6 @@ export default function PokerTable({
           // 计算座位索引（座位1对应索引0）
           const seatIndex = parseInt(pos.seat.replace("座位", "")) - 1;
 
-          // 判断各种状态
-          let isDealer = dealerPos === seatIndex;
-
           // 计算小盲和大盲位置
           let isSmallBlind = false;
           let isBigBlind = false;
@@ -326,8 +323,6 @@ export default function PokerTable({
                   actualDealerPos + 1
                 }`
               );
-              // 更新庄家标识
-              isDealer = actualDealerPos === seatIndex;
             }
 
             // 新的盲注逻辑：从座位1开始作为小盲，然后按座位顺序轮流
@@ -404,10 +399,9 @@ export default function PokerTable({
               {/* 桌沿外圈的玩家座位 */}
               <PlayerSeat
                 player={player}
-                seat={pos.seat}
+                seatNumber={pos.seat}
                 gameStatus={gameStatus}
                 gamePhase={gamePhase}
-                isDealer={isDealer}
                 isSmallBlind={isSmallBlind}
                 isBigBlind={isBigBlind}
                 isCurrentPlayer={isCurrentPlayerTurn}
@@ -415,7 +409,6 @@ export default function PokerTable({
                 onSit={() => onSit?.(pos.seat)}
                 onLeave={() => onLeave?.(pos.seat)}
                 isEmpty={!player}
-                seatNumber={pos.seat}
                 style={{
                   position: "absolute",
                   left: px,
@@ -440,8 +433,9 @@ export default function PokerTable({
                 }}
               >
                 {/* 在手牌区域显示已准备或弃牌标签 */}
-                {player && (
-                  player.isReady && (gameStatus === "waiting" || gamePhase === "showdown") ? (
+                {player &&
+                  (player.isReady &&
+                  (gameStatus === "waiting" || gamePhase === "showdown") ? (
                     <div
                       style={{
                         background: "rgba(76, 175, 80, 0.8)",
@@ -460,7 +454,7 @@ export default function PokerTable({
                     >
                       已准备
                     </div>
-                  ) :
+                  ) : (
                     player.status === "folded" && (
                       <div
                         style={{
@@ -481,64 +475,111 @@ export default function PokerTable({
                         弃牌
                       </div>
                     )
-                )}
+                  ))}
 
-                {/* 显示手牌 */}
-                <div style={{
-                  display: "flex",
-                  gap: "4px", // 减小牌之间的间距
-                  flexDirection: "row",
-                }}>
-                  {player?.holeCards?.map((card, index) => {
-                    const shouldShow =
-                      isCurrentUser ||
-                      (gamePhase === "showdown_reveal" &&
-                        shouldShowCard(seatIndex)) ||
-                      gamePhase === "showdown";
-                    const hasCard = card.suit && card.rank;
+                {/* 显示手牌和下注信息的容器 */}
+                <div
+                  style={{
+                    position: "relative", // 改为相对定位作为下注信息的参考点
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  {/* 手牌显示 */}
+                  {player && player.status !== "folded" && (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "4px",
+                        flexDirection: "row",
+                      }}
+                    >
+                      {player?.holeCards?.map((card, index) => {
+                        const shouldShow =
+                          isCurrentUser ||
+                          (gamePhase === "showdown_reveal" &&
+                            shouldShowCard(seatIndex)) ||
+                          gamePhase === "showdown";
+                        const hasCard = card.suit && card.rank;
 
-                    return (
+                        return (
+                          <div
+                            key={index}
+                            style={{
+                              width: "36px", // 减小宽度
+                              height: "50px", // 减小高度
+                              background:
+                                shouldShow && hasCard ? "white" : "#2D3748", // 问号牌使用深色背景
+                              border:
+                                shouldShow && hasCard
+                                  ? "1px solid rgba(0, 0, 0, 0.1)"
+                                  : "1px solid rgba(74, 85, 104, 0.2)",
+                              borderRadius: "5px", // 减小圆角
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "14px", // 减小字体大小
+                              fontWeight: "bold",
+                              boxShadow:
+                                shouldShow && hasCard
+                                  ? "0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.08)"
+                                  : "0 2px 4px rgba(0, 0, 0, 0.2)",
+                            }}
+                          >
+                            {shouldShow && hasCard ? (
+                              <>
+                                <div style={{ color: getSuitColor(card.suit) }}>
+                                  {card.rank}
+                                </div>
+                                <div
+                                  style={{
+                                    color: getSuitColor(card.suit),
+                                    fontSize: "16px", // 减小花色符号大小
+                                  }}
+                                >
+                                  {getSuitSymbol(card.suit)}
+                                </div>
+                              </>
+                            ) : (
+                              <div
+                                style={{ color: "#A0AEC0", fontSize: "18px" }}
+                              >
+                                ?
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* 下注信息显示 - 使用绝对定位 */}
+                  {(player?.currentBet ?? 0) > 0 &&
+                    gameStatus === "playing" && (
                       <div
-                        key={index}
                         style={{
-                          width: "36px", // 减小宽度
-                          height: "50px", // 减小高度
-                          background: shouldShow && hasCard ? "white" : "#2D3748", // 问号牌使用深色背景
-                          border: shouldShow && hasCard ? "1px solid rgba(0, 0, 0, 0.1)" : "1px solid rgba(74, 85, 104, 0.2)",
-                          borderRadius: "5px", // 减小圆角
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "14px", // 减小字体大小
+                          position: "absolute", // 改为绝对定位
+                          top: "100%", // 放在手牌下方
+                          left: "50%", // 水平居中
+                          transform: "translateX(-50%)", // 确保完全居中
+                          background: "rgba(255, 215, 0, 0.9)",
+                          color: "#000",
+                          padding: "4px 12px",
+                          borderRadius: "12px",
+                          fontSize: "14px",
                           fontWeight: "bold",
-                          boxShadow: shouldShow && hasCard 
-                            ? "0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.08)"
-                            : "0 2px 4px rgba(0, 0, 0, 0.2)",
+                          border: "2px solid #FFD700",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                          whiteSpace: "nowrap",
+                          marginTop: "8px", // 与手牌保持一定距离
+                          zIndex: 1, // 确保显示在上层
                         }}
                       >
-                        {shouldShow && hasCard ? (
-                          <>
-                            <div style={{ color: getSuitColor(card.suit) }}>
-                              {card.rank}
-                            </div>
-                            <div
-                              style={{
-                                color: getSuitColor(card.suit),
-                                fontSize: "16px", // 减小花色符号大小
-                              }}
-                            >
-                              {getSuitSymbol(card.suit)}
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ color: "#A0AEC0", fontSize: "18px" }}>
-                            ?
-                          </div>
-                        )}
+                        {player.currentBet}
                       </div>
-                    );
-                  })}
+                    )}
                 </div>
 
                 {/* 牌型显示 - 在摊牌阶段显示 */}
