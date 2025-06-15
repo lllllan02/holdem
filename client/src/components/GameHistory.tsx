@@ -56,9 +56,19 @@ interface GameHistoryProps {
 }
 
 const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [loading, setLoading] = useState(false)
   const [records, setRecords] = useState<GameRecord[]>([])
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+
+  // 获取实际的记录数量（不包括展开的行）
+  const totalRecords = records.length
+
+  // 计算当前页应该显示的记录
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  const currentPageRecords = records.slice(startIndex, endIndex)
 
   const fetchRecords = async () => {
     try {
@@ -206,8 +216,8 @@ const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
 
   const getTableData = () => {
     const data: any[] = []
-    records.forEach(record => {
-      // 添加获胜者记录
+    currentPageRecords.forEach(record => {
+      // 添加主记录
       data.push({
         roundId: record.roundId,
         playerNames: renderPlayerName(record),
@@ -306,23 +316,28 @@ const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
       title="历史对局"
       open={open}
       onCancel={onClose}
-      width={1000}
       footer={null}
+      width={1000}
+      style={{ top: 20 }}
     >
       <Table
         columns={columns}
         dataSource={getTableData()}
-        rowKey="roundId"
-        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          current: currentPage,
+          pageSize: pageSize,
+          total: totalRecords,
           showSizeChanger: true,
           showQuickJumper: true,
-          size: 'small',
-          showTotal: (total) => `共 ${total} 条记录`
+          onChange: (page) => setCurrentPage(page),
+          onShowSizeChange: (_, size) => {
+            setPageSize(size)
+            setCurrentPage(1)
+          },
+          showTotal: (total) => `共 ${total} 条记录`,
         }}
-        size="small"
-        style={{ marginTop: '-12px' }}
+        rowKey="roundId"
+        loading={loading}
         locale={{
           emptyText: '暂无对局记录'
         }}
