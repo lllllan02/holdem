@@ -37,6 +37,7 @@ func main() {
 	r.PUT("/user/name", service.UpdateUserNameHandler)
 	r.PUT("/user/avatar", service.UpdateUserAvatarHandler)
 	r.GET("/avatar/:userId", service.GetAvatarHandler)
+	r.GET("/game/records", service.GetGameRecordsHandler)
 
 	// WebSocket 连接
 	r.GET("/ws", service.WebSocketHandler)

@@ -3,6 +3,7 @@ import "./App.css";
 import type { User } from "./types/user";
 import PokerTable from "./components/PokerTable";
 import UserInfoCompact from "./components/UserInfoCompact";
+import GameHistory from "./components/GameHistory";
 import {
   wsService,
   type GameState,
@@ -44,6 +45,7 @@ function App() {
   const [showRaiseInput, setShowRaiseInput] = useState<boolean>(false);
   const [raiseAmount, setRaiseAmount] = useState<string>("");
   const [showdown, setShowdown] = useState<boolean>(false);
+  const [showHistory, setShowHistory] = useState<boolean>(false);
 
   // 获取用户信息
   const fetchUser = async () => {
@@ -1112,6 +1114,48 @@ function App() {
           <div>{getReadyStatusText()}</div>
         </div>
       )}
+
+      {/* 历史记录按钮 */}
+      <button
+        onClick={() => {
+          console.log('点击历史记录按钮')
+          setShowHistory(true)
+        }}
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "20px",
+          padding: "10px 20px",
+          fontSize: "14px",
+          fontWeight: "bold",
+          backgroundColor: "#6c757d",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.backgroundColor = "#5a6268";
+          e.currentTarget.style.transform = "translateY(-1px)";
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.backgroundColor = "#6c757d";
+          e.currentTarget.style.transform = "translateY(0)";
+        }}
+      >
+        历史对局
+      </button>
+
+      {/* 历史记录对话框 */}
+      <GameHistory 
+        open={showHistory} 
+        onClose={() => {
+          console.log('关闭历史记录对话框')
+          setShowHistory(false)
+        }} 
+      />
     </div>
   );
 }

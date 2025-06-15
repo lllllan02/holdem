@@ -143,43 +143,83 @@ func SaveGameRecord(record *GameRound) error {
 	return nil
 }
 
-// GetGameRecords 获取指定日期的所有对局记录
-func GetGameRecords(date time.Time) ([]*GameRound, error) {
-	dateDir := filepath.Join(recordDir, date.Format("2006-01-02"))
-
-	// 如果目录不存在，返回空记录
-	if _, err := os.Stat(dateDir); os.IsNotExist(err) {
-		return []*GameRound{}, nil
+// GetRecentGameRecords 获取最近的游戏记录
+// days 参数指定要获取最近几天的记录，默认为 7 天
+// limit 参数指定最多返回多少条记录，默认为 50 条
+func GetRecentGameRecords(days int, limit int) ([]*GameRound, error) {
+	if days <= 0 {
+		days = 7
+	}
+	if limit <= 0 {
+		limit = 50
 	}
 
-	// 读取目录下的所有文件
-	files, err := os.ReadDir(dateDir)
+	log.Printf("[记录] 开始获取最近 %d 天的记录，最多 %d 条", days, limit)
+
+	// 获取当前工作目录
+	currentDir, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("读取记录目录失败: %v", err)
+		log.Printf("[记录] 获取工作目录失败: %v", err)
+		return nil, fmt.Errorf("获取工作目录失败: %v", err)
 	}
+	log.Printf("[记录] 当前工作目录: %s", currentDir)
 
-	var records []*GameRound
-	for _, file := range files {
-		if file.IsDir() || filepath.Ext(file.Name()) != ".json" {
+	var allRecords []*GameRound
+	now := time.Now()
+
+	// 遍历最近几天的记录
+	for i := 0; i < days; i++ {
+		date := now.AddDate(0, 0, -i)
+		dateDir := filepath.Join(currentDir, recordDir, date.Format("2006-01-02"))
+		log.Printf("[记录] 检查日期目录: %s", dateDir)
+
+		// 如果目录不存在，继续下一天
+		if _, err := os.Stat(dateDir); os.IsNotExist(err) {
+			log.Printf("[记录] 目录不存在: %s", dateDir)
 			continue
 		}
 
-		// 读取文件内容
-		data, err := os.ReadFile(filepath.Join(dateDir, file.Name()))
+		// 读取目录下的所有文件
+		files, err := os.ReadDir(dateDir)
 		if err != nil {
-			log.Printf("[警告] 读取记录文件失败: %v", err)
+			log.Printf("[警告] 读取记录目录失败: %v", err)
 			continue
 		}
+		log.Printf("[记录] 找到 %d 个文件", len(files))
 
-		// 解析JSON
-		var record GameRound
-		if err := json.Unmarshal(data, &record); err != nil {
-			log.Printf("[警告] 解析记录文件失败: %v", err)
-			continue
+		// 处理每个记录文件
+		for _, file := range files {
+			if file.IsDir() || filepath.Ext(file.Name()) != ".json" {
+				continue
+			}
+			filePath := filepath.Join(dateDir, file.Name())
+			log.Printf("[记录] 处理文件: %s", filePath)
+
+			// 读取文件内容
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				log.Printf("[警告] 读取记录文件失败: %v", err)
+				continue
+			}
+
+			// 解析JSON
+			var record GameRound
+			if err := json.Unmarshal(data, &record); err != nil {
+				log.Printf("[警告] 解析记录文件失败: %v", err)
+				continue
+			}
+
+			allRecords = append(allRecords, &record)
+			log.Printf("[记录] 成功读取记录: %s", record.RoundID)
+
+			// 如果已经达到限制数量，提前返回
+			if len(allRecords) >= limit {
+				log.Printf("[记录] 已达到限制数量 %d，提前返回", limit)
+				return allRecords[:limit], nil
+			}
 		}
-
-		records = append(records, &record)
 	}
 
-	return records, nil
+	log.Printf("[记录] 总共读取到 %d 条记录", len(allRecords))
+	return allRecords, nil
 }

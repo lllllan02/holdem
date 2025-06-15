@@ -9,10 +9,16 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lllllan02/holdem/poker"
 )
 
 type UpdateNameRequest struct {
 	Name string `json:"name" binding:"required"`
+}
+
+type GetGameRecordsRequest struct {
+	Days  int `form:"days"`  // 查询最近几天的记录
+	Limit int `form:"limit"` // 限制返回的记录数量
 }
 
 // GetUserHandler 获取用户信息的处理函数
@@ -182,4 +188,29 @@ func GetAvatarHandler(c *gin.Context) {
 	}
 
 	c.File(avatarPath)
+}
+
+// GetGameRecordsHandler 获取历史对局记录的处理函数
+func GetGameRecordsHandler(c *gin.Context) {
+	var req GetGameRecordsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request parameters"})
+		return
+	}
+
+	log.Printf("[API] GetGameRecords - 请求参数: days=%d, limit=%d", req.Days, req.Limit)
+
+	// 获取历史对局记录
+	records, err := poker.GetRecentGameRecords(req.Days, req.Limit)
+	if err != nil {
+		log.Printf("[API] GetGameRecords - 获取记录失败: %v", err)
+		c.JSON(500, gin.H{"error": "Failed to get game records"})
+		return
+	}
+
+	log.Printf("[API] GetGameRecords - 获取到 %d 条记录", len(records))
+	c.JSON(200, gin.H{
+		"total":   len(records),
+		"records": records,
+	})
 }
