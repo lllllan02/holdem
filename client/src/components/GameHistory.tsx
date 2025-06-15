@@ -18,6 +18,7 @@ interface GameRecord {
     position: number
     initChips: number
     finalChips: number
+    chipsChange: number
     totalBet: number
     status: string
     handRank: string
@@ -37,6 +38,16 @@ interface GameRecord {
       rank: string
     }>
   }>
+}
+
+interface TableDataType {
+  roundId: string
+  playerNames: React.ReactNode
+  playerCards: React.ReactNode
+  communityCards: React.ReactNode
+  pot: number | null
+  time: { props: { children: string } } | null
+  actions: React.ReactNode | null
 }
 
 interface GameHistoryProps {
@@ -163,10 +174,10 @@ const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
           <span>{player.name}</span>
           <Tag 
-            color={player.finalChips - player.initChips > 0 ? 'success' : 'error'} 
+            color={player.chipsChange > 0 ? 'success' : 'error'} 
             style={{ margin: 0 }}
           >
-            {player.finalChips - player.initChips > 0 ? '+' : ''}{player.finalChips - player.initChips}
+            {player.chipsChange > 0 ? '+' : ''}{player.chipsChange}
           </Tag>
         </div>
       ),
@@ -243,7 +254,7 @@ const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
     )
   }
 
-  const columns: ColumnsType<GameRecord> = [
+  const columns: ColumnsType<TableDataType> = [
     {
       title: '玩家',
       key: 'playerNames',
@@ -281,7 +292,7 @@ const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
       width: '15%',
       align: 'center',
       defaultSortOrder: 'descend',
-      sorter: (a, b) => {
+      sorter: (a: TableDataType, b: TableDataType) => {
         if (!a.time || !b.time) return 0
         const timeA = dayjs(a.time.props.children).valueOf()
         const timeB = dayjs(b.time.props.children).valueOf()

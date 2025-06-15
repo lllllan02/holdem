@@ -105,7 +105,7 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
           const winner = currentRound?.winners?.find(w => w.userId === player.userId);
           const winAmount = winner?.winAmount || (player as WSPlayer).winAmount || 0;
           const totalBet = player.totalBet || 0;
-          const netChange = winAmount - totalBet;
+          const chipsChange = player.chipsChange || (winAmount - totalBet);
           const handRank = winner?.handRank || (player as WSPlayer).handRank;
           const displayCards = winner?.holeCards || player.holeCards || [];
 
@@ -117,15 +117,15 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
               padding: '15px',
               background: player.status === "folded" 
                 ? "rgba(255, 255, 255, 0.05)" 
-                : netChange > 0 
+                : chipsChange > 0 
                   ? "rgba(76, 175, 80, 0.1)" 
-                  : netChange < 0
+                  : chipsChange < 0
                     ? "rgba(244, 67, 54, 0.1)"
                     : "rgba(255, 255, 255, 0.08)",
               borderRadius: '10px',
-              border: netChange > 0 
+              border: chipsChange > 0 
                 ? "1px solid #4CAF50"
-                : netChange < 0
+                : chipsChange < 0
                   ? "1px solid #F44336"
                   : "1px solid #444"
             }}>
@@ -145,11 +145,11 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
                     gap: '6px',
                     fontSize: '16px',
                     fontWeight: 'bold',
-                    color: netChange > 0 ? "#4CAF50" : netChange < 0 ? "#F44336" : "white",
+                    color: chipsChange > 0 ? "#4CAF50" : chipsChange < 0 ? "#F44336" : "white",
                     minWidth: '100px'
                   }}>
                     {player.name}
-                    {netChange > 0 && (
+                    {chipsChange > 0 && (
                       <div style={{
                         background: "#FFD700",
                         color: "#000",
@@ -182,9 +182,9 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
                     </div>
                     <div style={{
                       fontSize: '14px',
-                      color: netChange > 0 ? "#4CAF50" : netChange < 0 ? "#F44336" : "#888"
+                      color: chipsChange > 0 ? "#4CAF50" : chipsChange < 0 ? "#F44336" : "#888"
                     }}>
-                      {netChange > 0 ? `+${netChange}` : netChange}
+                      {chipsChange > 0 ? `+${chipsChange}` : chipsChange}
                     </div>
                   </div>
                 </div>
@@ -242,7 +242,7 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
                     </div>
                   ) : handRank && (
                     <div style={{
-                      background: netChange > 0 ? "rgba(76, 175, 80, 0.8)" : "rgba(76, 175, 80, 0.6)",
+                      background: chipsChange > 0 ? "rgba(76, 175, 80, 0.8)" : "rgba(76, 175, 80, 0.6)",
                       color: "white",
                       padding: "4px 12px",
                       borderRadius: "15px",
