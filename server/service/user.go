@@ -34,8 +34,6 @@ func (u *User) String() string {
 }
 
 var users = make(map[string]*User)
-var dataDir = "data"
-var dataFile = filepath.Join(dataDir, "users.json")
 
 // CleanupUserData 清理和重置用户数据（用于解决历史数据不一致问题）
 func CleanupUserData() {
@@ -243,23 +241,9 @@ func saveUsers() {
 
 // GetUserAvatar 获取用户头像文件路径
 func GetUserAvatar(userId string) (string, error) {
-	// 获取项目根目录
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Printf("[Service] GetUserAvatar - 获取工作目录失败: %v", err)
-		return "", fmt.Errorf("failed to get working directory: %v", err)
-	}
-
-	// 如果当前在 server 目录，需要回到项目根目录
-	if strings.HasSuffix(currentDir, "server") {
-		currentDir = filepath.Dir(currentDir)
-	} else if strings.HasSuffix(currentDir, "service") {
-		currentDir = filepath.Dir(filepath.Dir(currentDir))
-	}
-
 	// 尝试不同的文件扩展名
 	extensions := []string{".jpg", ".jpeg", ".png", ".gif", ".webp"}
-	userDir := filepath.Join(currentDir, "uploads", "avatars", userId)
+	userDir := filepath.Join(avatarsDir, userId)
 
 	for _, ext := range extensions {
 		avatarPath := filepath.Join(userDir, "avatar"+ext)

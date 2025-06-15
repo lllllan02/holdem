@@ -111,24 +111,8 @@ func isValidImageFile(file *multipart.FileHeader) bool {
 
 // saveAvatarFile 保存头像文件
 func saveAvatarFile(userID string, file *multipart.FileHeader, c *gin.Context) error {
-	// 获取项目根目录（从当前工作目录向上两级）
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Printf("[API] saveAvatarFile - 获取工作目录失败: %v", err)
-		return fmt.Errorf("failed to get current directory: %v", err)
-	}
-
-	// 如果当前在 server 目录，需要回到项目根目录
-	if strings.HasSuffix(currentDir, "server") {
-		currentDir = filepath.Dir(currentDir)
-	} else if strings.HasSuffix(currentDir, "service") {
-		// 如果在 service 目录，需要回到项目根目录
-		currentDir = filepath.Dir(filepath.Dir(currentDir))
-	}
-	log.Printf("[API] saveAvatarFile - 项目根目录: %s", currentDir)
-
-	// 创建用户专属的头像目录
-	uploadDir := filepath.Join(currentDir, "uploads", "avatars", userID)
+	// 在当前目录下的 data/avatars 目录中保存头像
+	uploadDir := filepath.Join(avatarsDir, userID)
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		log.Printf("[API] saveAvatarFile - 创建目录失败: %v", err)
 		return fmt.Errorf("failed to create upload directory: %v", err)
