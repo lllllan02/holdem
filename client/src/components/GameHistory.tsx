@@ -291,13 +291,6 @@ const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
       dataIndex: 'time',
       width: '15%',
       align: 'center',
-      defaultSortOrder: 'descend',
-      sorter: (a: TableDataType, b: TableDataType) => {
-        if (!a.time || !b.time) return 0
-        const timeA = dayjs(a.time.props.children).valueOf()
-        const timeB = dayjs(b.time.props.children).valueOf()
-        return timeB - timeA
-      },
     },
     {
       title: '',

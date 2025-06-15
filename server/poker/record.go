@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -222,4 +223,19 @@ func GetRecentGameRecords(days int, limit int) ([]*GameRound, error) {
 
 	log.Printf("[记录] 总共读取到 %d 条记录", len(allRecords))
 	return allRecords, nil
+}
+
+// GetGameRecords 获取历史记录，按时间倒序排序
+func GetGameRecords(days int, limit int) ([]*GameRound, error) {
+	records, err := GetRecentGameRecords(days, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// 按时间倒序排序
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].StartTime > records[j].StartTime
+	})
+
+	return records, nil
 }

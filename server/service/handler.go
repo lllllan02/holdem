@@ -200,8 +200,8 @@ func GetGameRecordsHandler(c *gin.Context) {
 
 	log.Printf("[API] GetGameRecords - 请求参数: days=%d, limit=%d", req.Days, req.Limit)
 
-	// 获取历史对局记录
-	records, err := poker.GetRecentGameRecords(req.Days, req.Limit)
+	// 获取历史对局记录（已按时间倒序排序）
+	records, err := poker.GetGameRecords(req.Days, req.Limit)
 	if err != nil {
 		log.Printf("[API] GetGameRecords - 获取记录失败: %v", err)
 		c.JSON(500, gin.H{"error": "Failed to get game records"})
