@@ -57,6 +57,7 @@ export interface PlayerRoundInfo {
   initChips: number;
   finalChips: number;
   totalBet: number;
+  chipsChange: number;  // 添加筹码变化字段
   status: string;
   holeCards: Card[];
   handRank: string;

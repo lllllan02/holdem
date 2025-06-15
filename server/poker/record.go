@@ -31,15 +31,16 @@ type GameRound struct {
 
 // PlayerRoundInfo 记录一局游戏中玩家的信息
 type PlayerRoundInfo struct {
-	UserId     string `json:"userId"`     // 用户ID
-	Name       string `json:"name"`       // 玩家名称
-	Position   int    `json:"position"`   // 座位位置
-	InitChips  int    `json:"initChips"`  // 初始筹码
-	FinalChips int    `json:"finalChips"` // 最终筹码
-	TotalBet   int    `json:"totalBet"`   // 总下注
-	Status     string `json:"status"`     // 最终状态
-	HoleCards  []Card `json:"holeCards"`  // 手牌
-	HandRank   string `json:"handRank"`   // 牌型
+	UserId      string `json:"userId"`      // 用户ID
+	Name        string `json:"name"`        // 玩家名称
+	Position    int    `json:"position"`    // 座位位置
+	InitChips   int    `json:"initChips"`   // 初始筹码
+	FinalChips  int    `json:"finalChips"`  // 最终筹码
+	TotalBet    int    `json:"totalBet"`    // 总下注
+	ChipsChange int    `json:"chipsChange"` // 筹码变化（正数表示赢，负数表示输）
+	Status      string `json:"status"`      // 最终状态
+	HoleCards   []Card `json:"holeCards"`   // 手牌
+	HandRank    string `json:"handRank"`    // 牌型
 }
 
 // PlayerWinningInfo 记录获胜者信息
@@ -68,19 +69,30 @@ func CreateGameRecord(g *Game, winners []PlayerHand, winAmounts []int) *GameRoun
 		Winners:        make([]PlayerWinningInfo, 0),
 	}
 
+	// 创建一个映射来存储每个玩家赢得的金额
+	winnerAmounts := make(map[string]int)
+	for i, winner := range winners {
+		winnerAmounts[winner.Player.UserId] = winAmounts[i]
+	}
+
 	// 记录所有玩家信息
 	for i, player := range g.Players {
 		if !player.IsEmpty() {
+			// 计算筹码变化：赢得金额 - 总下注
+			winAmount := winnerAmounts[player.UserId] // 如果不是赢家，默认为0
+			chipsChange := winAmount - player.TotalBet
+
 			playerInfo := PlayerRoundInfo{
-				UserId:     player.UserId,
-				Name:       player.Name,
-				Position:   i,
-				InitChips:  player.Chips, // 这里用最终筹码，因为我们没有记录初始筹码
-				FinalChips: player.Chips,
-				TotalBet:   player.TotalBet,
-				Status:     player.Status,
-				HoleCards:  player.HoleCards,
-				HandRank:   "",
+				UserId:      player.UserId,
+				Name:        player.Name,
+				Position:    i,
+				InitChips:   player.Chips + player.TotalBet - winAmount, // 计算初始筹码
+				FinalChips:  player.Chips,
+				TotalBet:    player.TotalBet,
+				ChipsChange: chipsChange,
+				Status:      player.Status,
+				HoleCards:   player.HoleCards,
+				HandRank:    "",
 			}
 			if player.HandRank != nil {
 				playerInfo.HandRank = GetHandRankName(HandRankType(player.HandRank.Rank))

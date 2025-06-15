@@ -102,10 +102,9 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
           if (!player.name) return null;
 
           // 查找获胜者信息
-          const winner = currentRound?.winners?.find(w => w.userId === player.userId);
-          const winAmount = winner?.winAmount || (player as WSPlayer).winAmount || 0;
+          const winner = currentRound?.winners?.find(w => w.userId === player.userId); 
           const totalBet = player.totalBet || 0;
-          const chipsChange = player.chipsChange || (winAmount - totalBet);
+          const chipsChange = (currentRound?.players?.find(p => p.userId === player.userId)?.chipsChange) || 0;
           const handRank = winner?.handRank || (player as WSPlayer).handRank;
           const displayCards = winner?.holeCards || player.holeCards || [];
 
