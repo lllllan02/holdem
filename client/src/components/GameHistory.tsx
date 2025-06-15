@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Button, Modal, Table, Tag, Tooltip } from 'antd'
+import React, { useEffect, useState } from 'react'
+import { Modal, Table, Tag, Button, Tooltip } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 
@@ -7,7 +7,6 @@ interface GameRecord {
   roundId: string
   startTime: number
   endTime: number
-  dealerPos: number
   pot: number
   communityCards: Array<{
     suit: string
@@ -22,6 +21,10 @@ interface GameRecord {
     totalBet: number
     status: string
     handRank: string
+    holeCards: Array<{
+      suit: string
+      rank: string
+    }>
   }>
   winners: Array<{
     userId: string
@@ -29,6 +32,10 @@ interface GameRecord {
     position: number
     winAmount: number
     handRank: string
+    holeCards: Array<{
+      suit: string
+      rank: string
+    }>
   }>
 }
 
@@ -40,6 +47,7 @@ interface GameHistoryProps {
 const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
   const [loading, setLoading] = useState(false)
   const [records, setRecords] = useState<GameRecord[]>([])
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   const fetchRecords = async () => {
     try {
@@ -68,64 +76,224 @@ const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
     }
   }, [open])
 
-  console.log('当前记录数据:', records)
+  const toggleExpand = (roundId: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(roundId)) {
+        newSet.delete(roundId)
+      } else {
+        newSet.add(roundId)
+      }
+      return newSet
+    })
+  }
+
+  const renderCard = (card: { suit: string; rank: string }) => {
+    const suitSymbols: { [key: string]: string } = {
+      'hearts': '♥',
+      'diamonds': '♦',
+      'clubs': '♣',
+      'spades': '♠'
+    }
+    const suitColors: { [key: string]: string } = {
+      'hearts': '#ff0000',
+      'diamonds': '#ff0000',
+      'clubs': '#000000',
+      'spades': '#000000'
+    }
+    return (
+      <div style={{
+        width: '32px',
+        height: '45px',
+        background: 'white',
+        border: '1px solid rgba(0, 0, 0, 0.1)',
+        borderRadius: '4px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '13px',
+        fontWeight: 'bold',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.08)'
+      }}>
+        <div style={{ color: suitColors[card.suit] }}>
+          {card.rank}
+        </div>
+        <div style={{ color: suitColors[card.suit], fontSize: '15px' }}>
+          {suitSymbols[card.suit]}
+        </div>
+      </div>
+    )
+  }
+
+  const renderPlayerName = (record: GameRecord) => {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+        {record.winners.map((winner) => (
+          <div key={winner.userId} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ fontWeight: 'bold' }}>{winner.name}</span>
+            <Tag color="success" style={{ margin: 0 }}>+{winner.winAmount}</Tag>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const renderPlayerCards = (record: GameRecord) => {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+        {record.winners.map((winner) => (
+          <div key={winner.userId} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+            <Tag color="success" style={{ margin: 0, fontSize: '12px' }}>{winner.handRank}</Tag>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {winner.holeCards.map((card, index) => (
+                <div key={index}>{renderCard(card)}</div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const renderSinglePlayer = (player: GameRecord['players'][0], record: GameRecord) => {
+    return {
+      roundId: `${record.roundId}-${player.userId}`,
+      playerNames: (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+          <span>{player.name}</span>
+          <Tag 
+            color={player.finalChips - player.initChips > 0 ? 'success' : 'error'} 
+            style={{ margin: 0 }}
+          >
+            {player.finalChips - player.initChips > 0 ? '+' : ''}{player.finalChips - player.initChips}
+          </Tag>
+        </div>
+      ),
+      playerCards: (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+          {player.status === 'folded' ? (
+            <Tag color="error" style={{ margin: 0 }}>弃牌</Tag>
+          ) : (
+            <>
+              <Tag color="default" style={{ margin: 0, fontSize: '12px' }}>{player.handRank}</Tag>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {player.holeCards.map((card, index) => (
+                  <div key={index}>{renderCard(card)}</div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      ),
+      communityCards: null,
+      pot: null,
+      time: null,
+      actions: null
+    }
+  }
+
+  const getTableData = () => {
+    const data: any[] = []
+    records.forEach(record => {
+      // 添加获胜者记录
+      data.push({
+        roundId: record.roundId,
+        playerNames: renderPlayerName(record),
+        playerCards: renderPlayerCards(record),
+        communityCards: (
+          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+            {record.communityCards.map((card, index) => (
+              <div key={index}>{renderCard(card)}</div>
+            ))}
+          </div>
+        ),
+        pot: record.pot,
+        time: (
+          <Tooltip title={`开始时间：${dayjs(record.startTime * 1000).format('YYYY-MM-DD HH:mm:ss')}\n结束时间：${dayjs(record.endTime * 1000).format('YYYY-MM-DD HH:mm:ss')}`}>
+            {dayjs(record.startTime * 1000).format('MM-DD HH:mm:ss')}
+          </Tooltip>
+        ),
+        actions: renderExpandButton(record)
+      })
+
+      // 如果展开，添加其他玩家记录
+      if (expandedRows.has(record.roundId)) {
+        record.players
+          .filter(player => !record.winners.some(w => w.userId === player.userId))
+          .forEach(player => {
+            data.push(renderSinglePlayer(player, record))
+          })
+      }
+    })
+    return data
+  }
+
+  const renderExpandButton = (record: GameRecord) => {
+    const isExpanded = expandedRows.has(record.roundId)
+    return (
+      <Button 
+        type="link" 
+        size="small" 
+        onClick={() => toggleExpand(record.roundId)}
+        style={{ padding: '0 8px', whiteSpace: 'nowrap', minWidth: '50px' }}
+      >
+        {isExpanded ? '收起' : '其他'}
+      </Button>
+    )
+  }
 
   const columns: ColumnsType<GameRecord> = [
     {
-      title: '对局时间',
-      key: 'time',
-      render: (_, record) => (
-        <Tooltip title={`开始: ${dayjs(record.startTime * 1000).format('HH:mm:ss')}\n结束: ${dayjs(record.endTime * 1000).format('HH:mm:ss')}`}>
-          {dayjs(record.startTime * 1000).format('MM-DD HH:mm')}
-        </Tooltip>
-      ),
-      width: 100,
+      title: '玩家',
+      key: 'playerNames',
+      dataIndex: 'playerNames',
+      width: '20%',
       align: 'center',
+    },
+    {
+      title: '手牌',
+      key: 'playerCards',
+      dataIndex: 'playerCards',
+      width: '20%',
+      align: 'center',
+    },
+    {
+      title: '公共牌',
+      key: 'communityCards',
+      dataIndex: 'communityCards',
+      width: '25%',
+      align: 'center',
+      render: (content) => content || <div style={{ height: '45px' }} />,
     },
     {
       title: '底池',
       dataIndex: 'pot',
       key: 'pot',
-      render: (pot) => `$${pot}`,
-      width: 80,
+      render: (pot) => pot ? `$${pot}` : '',
+      width: '12%',
       align: 'center',
     },
     {
-      title: '玩家',
-      key: 'players',
-      render: (_, record) => (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-          {record.players.map((player) => {
-            const isWinner = record.winners.some(w => w.userId === player.userId)
-            const chipChange = player.finalChips - player.initChips
-            return (
-              <Tag
-                key={player.userId}
-                color={isWinner ? 'success' : 'default'}
-                style={{ margin: 0 }}
-              >
-                {player.name} ({chipChange > 0 ? '+' : ''}{chipChange})
-              </Tag>
-            )
-          })}
-        </div>
-      ),
+      title: '时间',
+      key: 'time',
+      dataIndex: 'time',
+      width: '15%',
+      align: 'center',
+      defaultSortOrder: 'descend',
+      sorter: (a, b) => {
+        if (!a.time || !b.time) return 0
+        const timeA = dayjs(a.time.props.children).valueOf()
+        const timeB = dayjs(b.time.props.children).valueOf()
+        return timeB - timeA
+      },
     },
     {
-      title: '获胜者',
-      key: 'winners',
-      render: (_, record) => (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-          {record.winners.map((winner) => (
-            <Tooltip key={winner.userId} title={`牌型: ${winner.handRank}`}>
-              <Tag color="success" style={{ margin: 0 }}>
-                {winner.name} (+{winner.winAmount})
-              </Tag>
-            </Tooltip>
-          ))}
-        </div>
-      ),
-      width: 200,
+      title: '',
+      key: 'actions',
+      dataIndex: 'actions',
+      width: '8%',
+      align: 'center',
     },
   ]
 
@@ -134,12 +302,12 @@ const GameHistory: React.FC<GameHistoryProps> = ({ open, onClose }) => {
       title="历史对局"
       open={open}
       onCancel={onClose}
-      width={800}
+      width={1000}
       footer={null}
     >
       <Table
         columns={columns}
-        dataSource={records}
+        dataSource={getTableData()}
         rowKey="roundId"
         loading={loading}
         pagination={{
