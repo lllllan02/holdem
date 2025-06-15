@@ -1,4 +1,4 @@
-import { type Player as WSPlayer, getHandName } from '../services/websocket';
+import { type Player as WSPlayer, type GameRound, getHandName } from '../services/websocket';
 
 interface ShowdownModalProps {
   players: WSPlayer[];
@@ -6,9 +6,14 @@ interface ShowdownModalProps {
   onClose: () => void;
   onReady: () => void;
   communityCards?: { suit: string; rank: string }[];
+  currentRound?: GameRound;
 }
 
-export default function ShowdownModal({ players, pot, onClose, communityCards, onReady }: ShowdownModalProps) {
+export default function ShowdownModal({ players, pot, onClose, communityCards, onReady, currentRound }: ShowdownModalProps) {
+  // 确保 communityCards 有值
+  const displayCommunityCards = currentRound?.communityCards || communityCards || [];
+  const displayPlayers = currentRound?.players || players;
+
   return (
     <div style={{
       position: 'fixed',
@@ -43,11 +48,11 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
         marginBottom: '10px',
         textAlign: 'center'
       }}>
-        底池总额: {pot} 筹码
+        底池总额: {currentRound?.pot || pot} 筹码
       </div>
 
       {/* 公共牌显示 */}
-      {communityCards && communityCards.length > 0 && (
+      {displayCommunityCards.length > 0 && (
         <div style={{ marginBottom: '20px', textAlign: 'center' }}>
           <h3 style={{
             color: '#ccc',
@@ -57,7 +62,7 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
             公共牌
           </h3>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-            {communityCards.map((card, index) => (
+            {displayCommunityCards.map((card, index) => (
               <div key={index} style={{
                 width: '50px',
                 height: '70px',
@@ -93,11 +98,16 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
         flexDirection: 'column',
         gap: '10px'
       }}>
-        {players.map((player, index) => {
+        {displayPlayers.map((player, index) => {
           if (!player.name) return null;
-          const winAmount = player.winAmount || 0;
+
+          // 查找获胜者信息
+          const winner = currentRound?.winners?.find(w => w.userId === player.userId);
+          const winAmount = winner?.winAmount || (player as WSPlayer).winAmount || 0;
           const totalBet = player.totalBet || 0;
           const netChange = winAmount - totalBet;
+          const handRank = winner?.handRank || (player as WSPlayer).handRank;
+          const displayCards = winner?.holeCards || player.holeCards || [];
 
           return (
             <div key={index} style={{
@@ -185,12 +195,12 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
                   gap: '10px'
                 }}>
                   {/* 显示玩家手牌 */}
-                  {player.status !== "folded" && player.holeCards && player.holeCards.length > 0 && (
+                  {player.status !== "folded" && displayCards.length > 0 && (
                     <div style={{ 
                       display: 'flex', 
                       gap: '4px',
                     }}>
-                      {player.holeCards.map((card, cardIndex) => (
+                      {displayCards.map((card, cardIndex) => (
                         <div key={cardIndex} style={{
                           width: '30px',
                           height: '42px',
@@ -201,13 +211,11 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
                           flexDirection: 'column',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '11px',
+                          fontSize: '12px',
                           fontWeight: 'bold',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                         }}>
-                          <div style={{ 
-                            color: (card.suit === 'hearts' || card.suit === 'diamonds') ? '#ff0000' : '#000000'
-                          }}>
+                          <div style={{ color: (card.suit === 'hearts' || card.suit === 'diamonds') ? '#ff0000' : '#000000' }}>
                             {card.rank}
                           </div>
                           <div style={{ 
@@ -232,7 +240,7 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
                     }}>
                       已弃牌
                     </div>
-                  ) : player.handRank && (
+                  ) : handRank && (
                     <div style={{
                       background: netChange > 0 ? "rgba(76, 175, 80, 0.8)" : "rgba(76, 175, 80, 0.6)",
                       color: "white",
@@ -241,7 +249,7 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
                       fontSize: "14px",
                       fontWeight: "500"
                     }}>
-                      {getHandName(player.handRank.rank)}
+                      {typeof handRank === 'string' ? handRank : getHandName(handRank.rank)}
                     </div>
                   )}
                 </div>
@@ -260,30 +268,36 @@ export default function ShowdownModal({ players, pot, onClose, communityCards, o
         <button
           onClick={onReady}
           style={{
+            padding: '10px 20px',
             background: '#4CAF50',
             color: 'white',
             border: 'none',
-            padding: '10px 20px',
             borderRadius: '5px',
             cursor: 'pointer',
             fontSize: '16px',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            transition: 'background 0.3s'
           }}
+          onMouseOver={e => (e.currentTarget.style.background = '#45a049')}
+          onMouseOut={e => (e.currentTarget.style.background = '#4CAF50')}
         >
-          准备
+          准备下一局
         </button>
         <button
           onClick={onClose}
           style={{
+            padding: '10px 20px',
             background: '#666',
             color: 'white',
             border: 'none',
-            padding: '10px 20px',
             borderRadius: '5px',
             cursor: 'pointer',
             fontSize: '16px',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            transition: 'background 0.3s'
           }}
+          onMouseOver={e => (e.currentTarget.style.background = '#555')}
+          onMouseOut={e => (e.currentTarget.style.background = '#666')}
         >
           关闭
         </button>

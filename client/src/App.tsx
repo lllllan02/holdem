@@ -125,13 +125,12 @@ function App() {
   const getSeatedPlayersFromGameState = () => {
     if (!gameState) return {};
 
-    const seatedPlayers: { [seat: string]: { name: string; chips: number } } =
-      {};
+    const seatedPlayers: { [seat: string]: WSPlayer } = {};
 
     gameState.players.forEach((player, index) => {
       const localPlayer = convertWSPlayerToLocal(player, index);
       if (localPlayer) {
-        seatedPlayers[`座位${index + 1}`] = localPlayer;
+        seatedPlayers[`座位${index + 1}`] = player;
       }
     });
 
@@ -1065,6 +1064,7 @@ function App() {
           }))}
           pot={gameState.pot}
           communityCards={gameState.communityCards}
+          currentRound={gameState.currentRound}
           onClose={() => setShowdown(false)}
           onReady={() => {
             wsService.ready();

@@ -48,6 +48,9 @@ type Game struct {
 	ShowdownOrder   []int `json:"showdownOrder"`   // 摊牌顺序（玩家索引）
 	CurrentShowdown int   `json:"currentShowdown"` // 当前摊牌的玩家索引
 	ShowdownTimer   int   `json:"showdownTimer"`   // 摊牌倒计时
+
+	// 对局记录
+	CurrentRound *GameRound `json:"currentRound"` // 当前对局记录，用于结算展示
 }
 
 // Card 扑克牌结构
@@ -80,6 +83,7 @@ func NewGame() *Game {
 		ShowdownOrder:   make([]int, 0),
 		CurrentShowdown: -1,
 		ShowdownTimer:   0,
+		CurrentRound:    nil,
 	}
 }
 
@@ -138,6 +142,7 @@ func (g *Game) StartGame() bool {
 	g.ShowdownOrder = make([]int, 0)
 	g.CurrentShowdown = -1
 	g.ShowdownTimer = 0
+	g.CurrentRound = nil // 清空当前对局记录
 
 	// 重置所有玩家的游戏状态
 	for i := range g.Players {
@@ -637,15 +642,51 @@ func (g *Game) showdown() {
 		}
 	}
 
-	// 如果只有一个玩家，直接获胜，不显示手牌
+	// 如果只有一个玩家，直接获胜
 	if len(activePlayers) == 1 {
 		winner := activePlayers[0]
-		winner.Chips += g.Pot
-		winner.WinAmount = g.Pot
-		// 清空手牌，这样就不会显示
-		winner.HoleCards = make([]Card, 0)
+		winAmount := g.Pot
+
+		// 创建获胜者信息
+		winnerHand := PlayerHand{
+			Player: winner,
+			Hand:   &Hand{Rank: HighCardRank}, // 使用高牌作为默认牌型
+		}
+		winners := []PlayerHand{winnerHand}
+		winAmounts := []int{winAmount}
+
+		// 创建并保存对局记录
+		g.CurrentRound = CreateGameRecord(g, winners, winAmounts)
+		if err := SaveGameRecord(g.CurrentRound); err != nil {
+			log.Printf("[警告] 保存对局记录失败: %v", err)
+		}
+
+		// 更新玩家状态
+		winner.Chips += winAmount
+		winner.WinAmount = winAmount
+		winner.HoleCards = make([]Card, 0) // 清空手牌，这样就不会显示
 		winner.HandRank = nil
-		log.Printf("[游戏] 玩家 %s 获胜，赢得底池 %d", winner.Name, g.Pot)
+
+		// 设置游戏状态
+		g.GamePhase = GamePhaseShowdown
+		g.GameStatus = GameStatusWaiting
+		g.CurrentPlayer = -1
+		g.DealerPos = -1
+		g.CountdownTimer = -1
+		g.ShowdownTimer = -1
+		g.CurrentShowdown = -1
+		g.ShowdownOrder = nil
+
+		// 重置所有玩家的准备状态
+		for i := range g.Players {
+			if !g.Players[i].IsEmpty() {
+				g.Players[i].IsReady = false
+				g.Players[i].Status = PlayerStatusSitting
+				g.Players[i].HasActed = false
+			}
+		}
+
+		log.Printf("[游戏] 玩家 %s 通过弃牌获胜，赢得底池 %d", winner.Name, winAmount)
 		return
 	}
 
@@ -758,16 +799,28 @@ func (g *Game) finishShowdown() {
 	winAmount := g.Pot / len(winners)
 	remainder := g.Pot % len(winners)
 
-	for i, winner := range winners {
-		amount := winAmount
+	// 计算每个获胜者的赢得金额
+	winAmounts := make([]int, len(winners))
+	for i := range winners {
+		winAmounts[i] = winAmount
 		if i < remainder {
-			amount++ // 余数分给前几个获胜者
+			winAmounts[i]++ // 余数分给前几个获胜者
 		}
+	}
 
-		winner.Player.Chips += amount
-		winner.Player.WinAmount = amount
+	// 创建对局记录
+	g.CurrentRound = CreateGameRecord(g, winners, winAmounts)
 
-		log.Printf("[游戏] 玩家 %s 获胜，赢得 %d 筹码", winner.Player.Name, amount)
+	// 保存对局记录
+	if err := SaveGameRecord(g.CurrentRound); err != nil {
+		log.Printf("[警告] 保存对局记录失败: %v", err)
+	}
+
+	// 分配筹码给获胜者
+	for i, winner := range winners {
+		winner.Player.Chips += winAmounts[i]
+		winner.Player.WinAmount = winAmounts[i]
+		log.Printf("[游戏] 玩家 %s 获胜，赢得 %d 筹码", winner.Player.Name, winAmounts[i])
 	}
 
 	// 切换到摊牌阶段并设置游戏状态为等待
@@ -849,6 +902,12 @@ func (g *Game) SetPlayerReady(userId string, ready bool) bool {
 				g.Players[i].WinAmount = 0                // 清空赢得金额
 				g.Players[i].HasActed = false             // 重置行动状态
 				g.Players[i].Status = PlayerStatusSitting // 重置为坐下状态
+			}
+
+			// 如果在摊牌阶段，保持玩家的手牌和牌型信息，直到新一局开始
+			if g.GamePhase == GamePhaseShowdown {
+				// 只更新准备状态，不清空其他信息
+				log.Printf("[游戏] 摊牌阶段，玩家 %s 准备状态更新为 %v，保留结算信息", g.Players[i].Name, ready)
 			}
 
 			log.Printf("[游戏] 玩家 %s %s", g.Players[i].Name, map[bool]string{true: "已准备", false: "取消准备"}[ready])

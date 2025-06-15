@@ -49,6 +49,41 @@ export interface Player {
   isReady?: boolean;    // 是否已准备
 }
 
+// 对局记录中的玩家信息
+export interface PlayerRoundInfo {
+  userId: string;
+  name: string;
+  position: number;
+  initChips: number;
+  finalChips: number;
+  totalBet: number;
+  status: string;
+  holeCards: Card[];
+  handRank: string;
+}
+
+// 获胜者信息
+export interface PlayerWinningInfo {
+  userId: string;
+  name: string;
+  position: number;
+  winAmount: number;
+  handRank: string;
+  holeCards: Card[];
+}
+
+// 对局记录
+export interface GameRound {
+  roundId: string;
+  startTime: number;
+  endTime: number;
+  dealerPos: number;
+  pot: number;
+  communityCards: Card[];
+  players: PlayerRoundInfo[];
+  winners: PlayerWinningInfo[];
+}
+
 // 游戏状态类型
 export interface GameState {
   players: Player[];
@@ -68,6 +103,9 @@ export interface GameState {
   showdownOrder: number[];  // 摊牌顺序（玩家索引）
   currentShowdown: number;  // 当前摊牌的玩家索引
   showdownTimer: number;    // 摊牌倒计时
+
+  // 对局记录
+  currentRound?: GameRound; // 当前对局记录，用于结算展示
 }
 
 // 回调函数类型

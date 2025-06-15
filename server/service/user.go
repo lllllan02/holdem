@@ -34,7 +34,8 @@ func (u *User) String() string {
 }
 
 var users = make(map[string]*User)
-var dataFile = "users.json"
+var dataDir = "data"
+var dataFile = filepath.Join(dataDir, "users.json")
 
 // CleanupUserData 清理和重置用户数据（用于解决历史数据不一致问题）
 func CleanupUserData() {
@@ -69,6 +70,11 @@ func CleanupUserData() {
 }
 
 func init() {
+	// 确保数据目录存在
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		log.Printf("[警告] 创建用户数据目录失败: %v", err)
+	}
+
 	// 尝试加载已存在的用户数据
 	data, err := os.ReadFile(dataFile)
 	if err == nil {
@@ -218,8 +224,20 @@ func UpdateUserName(id, name string) (*User, error) {
 
 // saveUsers 保存用户数据到文件
 func saveUsers() {
-	if data, err := json.MarshalIndent(users, "", "  "); err == nil {
-		os.WriteFile(dataFile, data, 0644)
+	// 确保数据目录存在
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		log.Printf("[警告] 创建用户数据目录失败: %v", err)
+		return
+	}
+
+	data, err := json.MarshalIndent(users, "", "  ")
+	if err != nil {
+		log.Printf("[警告] 序列化用户数据失败: %v", err)
+		return
+	}
+
+	if err := os.WriteFile(dataFile, data, 0644); err != nil {
+		log.Printf("[警告] 保存用户数据失败: %v", err)
 	}
 }
 
